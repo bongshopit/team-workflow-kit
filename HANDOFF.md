@@ -98,3 +98,12 @@ Not built: `team report` (all tickets in a period).
 
 ## Improvement flow, two speeds (agreed 2026-11-01)
 After a ticket is done: `team audit` -> if it has signals, a fresh `/improve` chat applies one small change locally (a commit on `local/<dev>` in the kit, with signal, hypothesis and baseline in the message) and notes it in the ledger -> at the sprint retro the team reviews the local changes from all developers and cherry-picks the agreed ones. See docs/OVERVIEW.md.
+
+## Multi-repo tickets (2026-11-01)
+Decision: one developer runs a ticket across all its repos cloned on one machine. Shared state across developers is not built.
+- `init-change ... --depends-on repoA,repoB` (from the story's "Depends on" line); `set-depends <folder> <repos|none>` to fix it.
+- Local registry `~/.copilot/team/tickets/<TICKET>.json` (repo -> change folder). Derived data; any command on a change folder registers it.
+- `next-action` in `approved` returns `wait-upstream` until every upstream repo is in review or done; `set-status applying` fails (exit 5, "upstream: ...") the same way.
+- `team ticket <TICKET> [--json]`: state per repo, dependencies and the merge order (upstream first).
+- team-explore passes `--depends-on`, team-run handles `wait-upstream`, team-summary takes the merge order from `team ticket`, team-review checks the story's "Contract note" for its side.
+- Still to test with a real run: PROJ-103 and PROJ-104.

@@ -25,7 +25,8 @@ CLI: `node $HOME/.copilot/team/team.mjs` (called `team`). Read-only on the repo.
    - `Risk:` anything that could break existing behavior
    - `Open questions:` or `none`
    - `Context used:` files you relied on
-5. Create the change: `team init-change <repo-root> <TICKET> --report .team-scratch/explore-report.md --acs <comma list of AC numbers> --story <story version>`
+5. Create the change: `team init-change <repo-root> <TICKET> --report .team-scratch/explore-report.md --acs <comma list of AC numbers> --story <story version> [--depends-on <repo,repo>]`
+   If the story says this repo waits for another (a "Depends on" line), pass those repo names in `--depends-on`. Use the repo folder names exactly.
 6. Report back: the folder path and state `explored`.
 
 ## Never

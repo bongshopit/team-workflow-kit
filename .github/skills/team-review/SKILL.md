@@ -26,6 +26,7 @@ A measured review used 74 single-file reads, each one a separate model call that
    - each AC is covered by at least one test that matches a scenario in the plan
    - tests pass (run `TEAM_TEST_CMD`)
    - team conventions: naming, error handling, no leftover debug code, API contract file updated when the API changed
+   - if the story has a "Contract note", this repo's side of it is done and matches the note. Name in `review.md` the file the other repo must match; the orchestrator checks the other side
 4. Write `review.md`:
    - `Reviewer: reviewer agent`
    - `Compared:` what you compared

@@ -95,6 +95,51 @@ function allowedFrom(st) {
   return [...new Set([st.blocked_from, "applying", "proposed", "abandoned"].filter(Boolean))];
 }
 
+// ---------- tickets that span repos ----------
+// A local registry (<TEAM_HOME>/tickets/<TICKET>.json) records where each repo's change folder is on this machine.
+// It is derived data: any command run on a change folder registers it. status.json stays the source of truth.
+const ticketsFile = (ticket) => path.join(teamHome(), "tickets", `${ticket}.json`);
+function readRegistry(ticket) {
+  try { return JSON.parse(fs.readFileSync(ticketsFile(ticket), "utf8")); } catch { return { ticket, repos: {} }; }
+}
+function register(ticket, repo, folder) {
+  try {
+    const reg = readRegistry(ticket);
+    if (reg.repos[repo] && reg.repos[repo].folder === folder) return;
+    reg.repos[repo] = { folder, updated: now() };
+    fs.mkdirSync(path.dirname(ticketsFile(ticket)), { recursive: true });
+    fs.writeFileSync(ticketsFile(ticket), JSON.stringify(reg, null, 2) + "\n");
+  } catch { /* never fail a command because of the registry */ }
+}
+const UPSTREAM_READY = new Set(["review", "done"]);
+// What stops this change from starting to apply: each upstream repo must be in review or done.
+function upstreamProblems(st) {
+  const out = [];
+  if (!Array.isArray(st.depends_on) || !st.depends_on.length) return out;
+  const reg = readRegistry(st.ticket);
+  for (const name of st.depends_on) {
+    const entry = reg.repos[name];
+    if (!entry) { out.push(`${name} has no change for ${st.ticket} yet (start it, or run a command on its change folder so it is registered)`); continue; }
+    let up;
+    try { up = JSON.parse(fs.readFileSync(statusPath(entry.folder), "utf8")); } catch { out.push(`${name}: cannot read its status.json (${entry.folder})`); continue; }
+    if (!UPSTREAM_READY.has(up.state)) out.push(`${name} is ${up.state}, it needs review or done`);
+  }
+  return out;
+}
+// Upstream repos first. Returns { order, cycle }.
+function mergeOrder(rows) {
+  const names = rows.map((r) => r.repo).sort();
+  const deps = new Map(rows.map((r) => [r.repo, (r.depends_on || []).filter((d) => names.includes(d))]));
+  const order = [];
+  const left = new Set(names);
+  while (left.size) {
+    const next = [...left].filter((n) => deps.get(n).every((d) => !left.has(d))).sort();
+    if (!next.length) return { order: [...order, ...[...left].sort()], cycle: true };
+    for (const n of next) { order.push(n); left.delete(n); }
+  }
+  return { order, cycle: false };
+}
+
 // ---------- validation ----------
 function runTests(folder) {
   const cmd = process.env.TEAM_TEST_CMD;
@@ -110,6 +155,7 @@ function validate(folder, st, mode, { skipTests = false } = {}) {
     if (!st.proposal_approved_by) problems.push("no approver recorded");
     if (!st.ready.proposal || !st.ready.test_plan) problems.push("proposal and test plan are not both ready");
     for (const f of ["proposal.md", "tasks.md"]) if (!exists(folder, f)) problems.push(`${f} is missing or empty`);
+    for (const p of upstreamProblems(st)) problems.push(`upstream: ${p}`);
   }
   if (mode === "review" || mode === "done") {
     const { done, open } = taskCounts(folder);
@@ -265,7 +311,7 @@ function repoForTicket(ticket) {
 function callContext(cmd, pos) {
   if (cmd === "init-change" && pos[0] && pos[1]) return { ticket: pos[1], repo: path.basename(path.resolve(pos[0])), folder: null };
   if (cmd === "note-skill" && pos[0]) return { ticket: pos[0], repo: repoForTicket(pos[0]), folder: null };
-  if (["help", "calls"].includes(cmd) || !pos[0]) return null;
+  if (["help", "calls", "ticket"].includes(cmd) || !pos[0]) return null;
   const folder = path.resolve(pos[0]);
   return { ticket: path.basename(folder), repo: path.basename(path.resolve(folder, "..", "..", "..")), folder };
 }
@@ -287,6 +333,14 @@ function logCall(ctx, entry) {
   }
 }
 
+function parseDepends(text, self) {
+  if (text === undefined || text === "none") return [];
+  const list = String(text).split(",").map((x) => x.trim()).filter(Boolean);
+  if (!list.length) throw new Fail("--depends-on needs repo names, for example inventory-service,order-service (or none)", 64);
+  if (list.includes(self)) throw new Fail(`${self} cannot depend on itself`, 64);
+  return [...new Set(list)];
+}
+
 // ---------- commands ----------
 const COMMANDS = {
   "init-change"(pos, flags) {
@@ -304,6 +358,7 @@ const COMMANDS = {
     fs.mkdirSync(folder, { recursive: true });
     fs.copyFileSync(report, filePath(folder, "explore-report.md"));
     const by = flags.by || "init-change";
+    const depends = parseDepends(flags["depends-on"], path.basename(repoRoot));
     const st = {
       ticket,
       story: flags.story || null,
@@ -315,7 +370,7 @@ const COMMANDS = {
       proposal_approved_by: null,
       approved_at: null,
       review_requested_at: null,
-      depends_on: [],
+      depends_on: depends,
       pr_url: null,
       retries: { test_failures: 0, review_rounds: 0, failed_tests: {} },
       blocked_reason: null,
@@ -420,9 +475,13 @@ const COMMANDS = {
         } else if (!st.review_requested_at) r = { action: "request-review", agent: "script", detail: "notify Gate 1" };
         else r = { action: "wait-gate-1", agent: "human", detail: "approve the approach and the test plan" };
         break;
-      case "approved":
-        r = { action: "team-apply", agent: "orchestrator", detail: "validate, then start the dev subagent" };
+      case "approved": {
+        const up = upstreamProblems(st);
+        r = up.length
+          ? { action: "wait-upstream", agent: "orchestrator", detail: up.join("; ") }
+          : { action: "team-apply", agent: "orchestrator", detail: "validate, then start the dev subagent" };
         break;
+      }
       case "applying": {
         const { done, open } = taskCounts(folder);
         r = { action: "dev-resume", agent: "dev", detail: `${done} of ${done + open} tasks ticked, continue at task ${done + 1}` };
@@ -445,6 +504,38 @@ const COMMANDS = {
     else {
       console.log(`state:  ${st.state}\naction: ${r.action}\nagent:  ${r.agent}\ndetail: ${r.detail}`);
       if (r.also) console.log(`also:   ${r.also.action} (${r.also.agent}): ${r.also.detail}`);
+    }
+  },
+
+  "set-depends"(pos) {
+    const folder = path.resolve(need(pos[0], "change folder"));
+    const st = load(folder);
+    if (["done", "abandoned"].includes(st.state)) throw new Fail(`change is ${st.state}`, 2);
+    st.depends_on = parseDepends(need(pos[1], "repo names or none"), st.repo);
+    save(folder, st);
+    LOG.detail = st.depends_on.join(",") || "none";
+    console.log(`depends_on: ${st.depends_on.join(", ") || "none"}`);
+  },
+
+  // One table for a ticket that spans repos: state per repo, dependencies, and the order to merge in.
+  ticket(pos, flags) {
+    const ticket = need(pos[0], "ticket id");
+    if (!TICKET_RE.test(ticket)) throw new Fail(`bad ticket id: ${ticket}`, 64);
+    const reg = readRegistry(ticket);
+    const rows = Object.entries(reg.repos).map(([repo, e]) => {
+      try {
+        const st = JSON.parse(fs.readFileSync(statusPath(e.folder), "utf8"));
+        return { repo, state: st.state, depends_on: st.depends_on || [], pr_url: st.pr_url || null, folder: e.folder };
+      } catch { return { repo, state: "unreadable", depends_on: [], pr_url: null, folder: e.folder }; }
+    }).sort((a, b) => a.repo.localeCompare(b.repo));
+    if (!rows.length) throw new Fail(`no repos registered for ${ticket} on this machine`);
+    const { order, cycle } = mergeOrder(rows);
+    const waiting = (r) => upstreamProblems({ ticket, depends_on: r.depends_on });
+    if (flags.json) return console.log(JSON.stringify({ ticket, mergeOrder: order, cycle, repos: rows.map((r) => ({ ...r, waitingFor: waiting(r) })) }, null, 2));
+    console.log(`${ticket}: merge order ${order.join(" -> ")}${cycle ? "  (dependency cycle!)" : ""}`);
+    for (const r of rows) {
+      const w = waiting(r);
+      console.log(`  ${r.repo.padEnd(22)} ${r.state.padEnd(10)} depends on ${r.depends_on.join(", ") || "-"}${w.length && ["explored", "proposed", "approved"].includes(r.state) ? "  (waiting)" : ""}${r.pr_url ? "  " + r.pr_url : ""}`);
     }
   },
 
@@ -492,7 +583,7 @@ const COMMANDS = {
   help() {
     console.log(`node team.mjs <command> ...
 
-  init-change <repo-root> <TICKET> --report <file> --acs 1,2,3 [--story v3]
+  init-change <repo-root> <TICKET> --report <file> --acs 1,2,3 [--story v3] [--depends-on repo,repo]
   set-status <folder> <state> [--reason text] [--by name] [--skip-tests]
   set-ready <folder> test_plan
   request-review <folder>
@@ -500,6 +591,8 @@ const COMMANDS = {
   validate-change <folder> [--for apply|review|done] [--skip-tests]
   record-failure <folder> <test name>
   next-action <folder> [--json]
+  set-depends <folder> <repo,repo|none>         set the upstream repos this change waits for
+  ticket <TICKET> [--json]                      repos of a ticket on this machine: state, dependencies, merge order
   note-skill <TICKET> <skill> [--agent name]    record that a skill was started (no state change)
   calls <TICKET> [--json]                       show the recorded calls for a ticket
   audit <folder>                                write <TICKET>-audit.md (cost, flow, skills, failures) into the change folder
@@ -540,6 +633,7 @@ function main() {
       state_after: folder ? stateOf(folder) : null,
       pid: process.pid,
     });
+    if (ctx && folder && fs.existsSync(statusPath(folder))) register(ctx.ticket, ctx.repo, folder);
   }
 }
 

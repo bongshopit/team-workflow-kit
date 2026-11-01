@@ -24,6 +24,7 @@ A ticket id, for example `PROJ-123`. The story already carries its ACs and scena
    | `test-plan`, `qe-refine` | start the `qe` agent with skill `team-test-plan` |
    | `request-review` | `team request-review <folder>` |
    | `wait-gate-1` | stop. Tell the human what to review (proposal.md and test-plan.md) and how to approve: `team approve <folder> <name>` |
+   | `wait-upstream` | the change waits for an upstream repo. Run `team ticket <TICKET>` to see the states, work the upstream repo's change first (its folder is listed in `team ticket --json`), then come back. Do not start `dev` for this repo |
    | `team-apply` | check `depends_on` (upstream repos must be in `review` or `done`), then start the `dev` agent with skill `team-apply` for this repo. Independent repos run in parallel |
    | `dev-resume`, `set-status review` | start the `dev` agent with skill `team-apply` |
    | `review` | start the `reviewer` agent with skill `team-review` |

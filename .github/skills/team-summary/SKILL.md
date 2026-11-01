@@ -25,7 +25,7 @@ State `review`, `review.md` says `Result: pass`, and `team next-action <folder> 
 5. Tell the human: Gate 2 is theirs. They review and merge, then run `team set-status <folder> done`.
 
 ## Multi-repo
-Write one summary per repo and one ticket-level list: repo, PR link, state, merge order. Upstream repos merge first.
+Write one summary per repo and one ticket-level list: repo, PR link, state, merge order. Take the merge order and the states from `team ticket <TICKET>` (upstream repos merge first). Run `team audit` once per repo folder; it covers the whole ticket.
 
 ## Never
 - Never merge. Never run `set-status done`. Both belong to the human at Gate 2.

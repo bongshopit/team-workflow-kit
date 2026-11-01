@@ -417,3 +417,76 @@ test("the old command name retro still works and says it was renamed", () => {
   assert.ok(fs.existsSync(path.join(folder, "PROJ-621-audit.md")));
   assert.match(r.err || "", /now 'team audit'/);
 });
+
+// ---- tickets that span repos ----
+function twoRepos(ticket, { dependsOn = "inventory-service" } = {}) {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "team-home-"));
+  const parent = fs.mkdtempSync(path.join(os.tmpdir(), "team-ws-"));
+  const env = { TEAM_HOME: home };
+  const make = (name, extra = []) => {
+    const repo = path.join(parent, name);
+    fs.mkdirSync(repo);
+    fs.writeFileSync(path.join(repo, "r.md"), "# f\n");
+    ok(["init-change", repo, ticket, "--report", path.join(repo, "r.md"), "--acs", "1", ...extra], env);
+    return path.join(repo, ".team", "changes", ticket);
+  };
+  const up = make("inventory-service");
+  const down = make("order-service", dependsOn ? ["--depends-on", dependsOn] : []);
+  const advance = (folder, to) => {
+    fs.writeFileSync(path.join(folder, "proposal.md"), "# P\n");
+    fs.writeFileSync(path.join(folder, "tasks.md"), TASKS_OPEN);
+    fs.writeFileSync(path.join(folder, "test-plan.md"), PLAN_V2);
+    ok(["set-status", folder, "proposed"], env);
+    ok(["set-ready", folder, "test_plan"], env);
+    ok(["approve", folder, "lead"], env);
+    if (to === "approved") return;
+    ok(["set-status", folder, "applying"], env);
+    fs.writeFileSync(path.join(folder, "tasks.md"), TASKS_DONE);
+    ok(["set-status", folder, "review", "--skip-tests"], env);
+  };
+  return { env, up, down, advance };
+}
+
+test("init-change stores depends_on, and a repo cannot depend on itself", () => {
+  const t = twoRepos("PROJ-700");
+  assert.deepEqual(JSON.parse(fs.readFileSync(path.join(t.down, "status.json"), "utf8")).depends_on, ["inventory-service"]);
+  const repo = fs.mkdtempSync(path.join(os.tmpdir(), "team-"));
+  fs.writeFileSync(path.join(repo, "r.md"), "# f\n");
+  fail(["init-change", repo, "PROJ-701", "--report", path.join(repo, "r.md"), "--acs", "1", "--depends-on", path.basename(repo)], 64, t.env);
+});
+
+test("a downstream repo waits until its upstream is in review or done", () => {
+  const t = twoRepos("PROJ-702");
+  t.advance(t.down, "approved");
+  const wait = JSON.parse(ok(["next-action", t.down, "--json"], t.env).out);
+  assert.equal(wait.action, "wait-upstream");
+  assert.match(wait.detail, /inventory-service is explored/);
+  const blocked = fail(["set-status", t.down, "applying"], 5, t.env);
+  assert.match(blocked.err, /upstream: inventory-service is explored/);
+  t.advance(t.up, "review");
+  assert.equal(JSON.parse(ok(["next-action", t.down, "--json"], t.env).out).action, "team-apply");
+  ok(["set-status", t.down, "applying"], t.env);
+});
+
+test("an upstream repo that was never started blocks too, and set-depends can fix a wrong list", () => {
+  const t = twoRepos("PROJ-703", { dependsOn: "notification-service" });
+  t.advance(t.down, "approved");
+  const w = JSON.parse(ok(["next-action", t.down, "--json"], t.env).out);
+  assert.equal(w.action, "wait-upstream");
+  assert.match(w.detail, /notification-service has no change/);
+  ok(["set-depends", t.down, "none"], t.env);
+  assert.equal(JSON.parse(ok(["next-action", t.down, "--json"], t.env).out).action, "team-apply");
+  ok(["set-depends", t.down, "inventory-service"], t.env);
+  assert.equal(JSON.parse(ok(["next-action", t.down, "--json"], t.env).out).action, "wait-upstream");
+});
+
+test("ticket lists the repos with state and the merge order, upstream first", () => {
+  const t = twoRepos("PROJ-704");
+  const text = ok(["ticket", "PROJ-704"], t.env).out;
+  assert.match(text, /merge order inventory-service -> order-service/);
+  assert.match(text, /order-service\s+explored\s+depends on inventory-service\s+\(waiting\)/);
+  const j = JSON.parse(ok(["ticket", "PROJ-704", "--json"], t.env).out);
+  assert.deepEqual(j.mergeOrder, ["inventory-service", "order-service"]);
+  assert.equal(j.cycle, false);
+  fail(["ticket", "PROJ-999"], 1, t.env);
+});
