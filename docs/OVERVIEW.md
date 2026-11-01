@@ -27,6 +27,7 @@ The orchestrator never edits source or `status.json`. It asks `team next-action`
 | `team/scripts/team.mjs` | Commands: init-change, set-status, set-ready, request-review, approve, validate-change, record-failure, next-action, note-skill, calls, audit (`retro` is the old name). Writes `status.json`. Logs every call to `~/.copilot/team/calls/<TICKET>.jsonl`, with the reason when it fails. 25 tests. |
 | `team/scripts/team-hook.mjs`, `team/hooks/` | Copilot hook: logs which skill was read, by which tool call, in which session. No content. `install-hooks.ps1` installs it. |
 | `team/otel/` | Collector (OTLP on 127.0.0.1:4318, daily spool), `otel-report.mjs` (cost, phases, roles, skills, failures), `otel-audit.mjs` (markdown audit), `otel-task.ps1` (logon task). 26 tests. |
+| `~/.copilot/team/tickets/<TICKET>/` | Per ticket, on the machine: `ticket.json` (repos and their change folders) and `audit.md` (whole ticket). The contract itself stays in each repo, committed with the PR. |
 | `demo-workspace/` | Three Java repos (order, inventory, notification), stories PROJ-101 to 105, `setup.mjs` to create or `--reset` the git baseline. |
 | `HANDOFF.md` | Running log of findings and open tasks. This file is the stable summary. |
 

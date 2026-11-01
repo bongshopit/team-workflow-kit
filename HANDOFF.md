@@ -102,8 +102,13 @@ After a ticket is done: `team audit` -> if it has signals, a fresh `/improve` ch
 ## Multi-repo tickets (2026-11-01)
 Decision: one developer runs a ticket across all its repos cloned on one machine. Shared state across developers is not built.
 - `init-change ... --depends-on repoA,repoB` (from the story's "Depends on" line); `set-depends <folder> <repos|none>` to fix it.
-- Local registry `~/.copilot/team/tickets/<TICKET>.json` (repo -> change folder). Derived data; any command on a change folder registers it.
+- Local registry `~/.copilot/team/tickets/<TICKET>/ticket.json` (repo -> change folder). Derived data; any command on a change folder registers it.
 - `next-action` in `approved` returns `wait-upstream` until every upstream repo is in review or done; `set-status applying` fails (exit 5, "upstream: ...") the same way.
 - `team ticket <TICKET> [--json]`: state per repo, dependencies and the merge order (upstream first).
 - team-explore passes `--depends-on`, team-run handles `wait-upstream`, team-summary takes the merge order from `team ticket`, team-review checks the story's "Contract note" for its side.
 - Still to test with a real run: PROJ-103 and PROJ-104.
+
+## Where files live (2026-11-01)
+- Per repo, committed with the PR: `<repo>/.team/changes/<TICKET>/` (status.json, proposal, tasks, test plan, review, summary, and a copy of `<TICKET>-audit.md`).
+- Per ticket, on this machine: `~/.copilot/team/tickets/<TICKET>/ticket.json` (registry) and `audit.md` (whole ticket, all repos). Calls, hooks and telemetry stay under `~/.copilot/team/`.
+- Explore scratch stays in the workspace (`.team-scratch/`, git-ignored): agents write there without extra prompts. Moving it under `~/.copilot` would mean agent file edits outside the workspace.

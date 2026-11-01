@@ -400,6 +400,8 @@ test("audit writes <TICKET>-audit.md into the change folder and changes no state
   fs.writeFileSync(stub, 'import fs from "node:fs"; const a = process.argv; fs.writeFileSync(a[a.indexOf("--out") + 1], "# Audit: " + a[2] + "\\n");\n');
   ok(["audit", folder], { TEAM_HOME: home, TEAM_OTEL_REPORT: stub });
   assert.equal(fs.readFileSync(path.join(folder, "PROJ-620-audit.md"), "utf8"), "# Audit: PROJ-620\n");
+  assert.equal(fs.readFileSync(path.join(home, "tickets", "PROJ-620", "audit.md"), "utf8"), "# Audit: PROJ-620\n");
+  assert.ok(fs.existsSync(path.join(home, "tickets", "PROJ-620", "ticket.json")));
   assert.equal(fs.readFileSync(path.join(folder, "status.json"), "utf8"), before);
   assert.ok(readCalls("PROJ-620", home).some((r) => r.cmd === "audit" && r.code === 0));
   fail(["audit", folder], 64, { TEAM_HOME: home, TEAM_OTEL_REPORT: path.join(repo, "missing.mjs") });
@@ -483,6 +485,8 @@ test("an upstream repo that was never started blocks too, and set-depends can fi
 test("ticket lists the repos with state and the merge order, upstream first", () => {
   const t = twoRepos("PROJ-704");
   const text = ok(["ticket", "PROJ-704"], t.env).out;
+  const reg = JSON.parse(fs.readFileSync(path.join(t.env.TEAM_HOME, "tickets", "PROJ-704", "ticket.json"), "utf8"));
+  assert.deepEqual(Object.keys(reg.repos).sort(), ["inventory-service", "order-service"]);
   assert.match(text, /merge order inventory-service -> order-service/);
   assert.match(text, /order-service\s+explored\s+depends on inventory-service\s+\(waiting\)/);
   const j = JSON.parse(ok(["ticket", "PROJ-704", "--json"], t.env).out);

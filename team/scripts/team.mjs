@@ -96,9 +96,10 @@ function allowedFrom(st) {
 }
 
 // ---------- tickets that span repos ----------
-// A local registry (<TEAM_HOME>/tickets/<TICKET>.json) records where each repo's change folder is on this machine.
+// A local registry (<TEAM_HOME>/tickets/<TICKET>/ticket.json) records where each repo's change folder is on this machine.
 // It is derived data: any command run on a change folder registers it. status.json stays the source of truth.
-const ticketsFile = (ticket) => path.join(teamHome(), "tickets", `${ticket}.json`);
+const ticketDir = (ticket) => path.join(teamHome(), "tickets", ticket);
+const ticketsFile = (ticket) => path.join(ticketDir(ticket), "ticket.json");
 function readRegistry(ticket) {
   try { return JSON.parse(fs.readFileSync(ticketsFile(ticket), "utf8")); } catch { return { ticket, repos: {} }; }
 }
@@ -560,7 +561,7 @@ const COMMANDS = {
     }
   },
 
-  // Writes <TICKET>-audit.md into the change folder: cost by role and phase, flow, skills, failures. Needs the otel report script next to this one
+  // Writes the ticket's audit to <TEAM_HOME>/tickets/<TICKET>/audit.md and a copy <TICKET>-audit.md into the change folder: cost by role and phase, flow, skills, failures. Needs the otel report script next to this one
   // (otel/otel-report.mjs, or ../otel/ in the kit layout), or TEAM_OTEL_REPORT. It changes no state.
   audit(pos) {
     const folder = path.resolve(need(pos[0], "change folder"));
@@ -570,10 +571,13 @@ const COMMANDS = {
     const candidates = process.env.TEAM_OTEL_REPORT ? [process.env.TEAM_OTEL_REPORT] : [path.join(here, "otel", "otel-report.mjs"), path.join(here, "..", "otel", "otel-report.mjs")];
     const script = candidates.find((c) => fs.existsSync(c));
     if (!script) throw new Fail("otel-report.mjs not found. Copy the kit's team/otel folder next to team.mjs, or set TEAM_OTEL_REPORT.", 64);
-    const out = filePath(folder, `${ticket}-audit.md`);
-    const r = spawnSync(process.execPath, [script, ticket, "--home", teamHome(), "--md", "--out", out], { encoding: "utf8" });
+    // The audit covers the whole ticket, so it lives with the ticket on this machine, and a copy goes into the change folder to travel with the PR.
+    const whole = path.join(ticketDir(ticket), "audit.md");
+    const copy = filePath(folder, `${ticket}-audit.md`);
+    const r = spawnSync(process.execPath, [script, ticket, "--home", teamHome(), "--md", "--out", whole], { encoding: "utf8" });
     if (r.status !== 0) throw new Fail((r.stderr || r.stdout || "audit failed").trim().split("\n")[0], 1);
-    console.log(`wrote ${out}`);
+    fs.copyFileSync(whole, copy);
+    console.log(`wrote ${whole}\nwrote ${copy}`);
   },
   // Old name. The audit is about the workflow run, the retro is the team's meeting.
   retro(pos, flags) {
