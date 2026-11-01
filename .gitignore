@@ -1,0 +1,5 @@
+node_modules/
+.team-scratch/
+*.zip
+# The demo repos are separate git repos (baseline tag), created by demo-workspace/setup.mjs
+demo-workspace/repos/

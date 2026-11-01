@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "hooks": {
+    "sessionStart":  [{ "type": "command", "powershell": "node \"$HOME/.copilot/team/team-hook.mjs\" sessionStart",  "bash": "node \"$HOME/.copilot/team/team-hook.mjs\" sessionStart",  "timeoutSec": 5 }],
+    "postToolUse":   [{ "type": "command", "powershell": "node \"$HOME/.copilot/team/team-hook.mjs\" postToolUse",   "bash": "node \"$HOME/.copilot/team/team-hook.mjs\" postToolUse",   "timeoutSec": 5 }],
+    "subagentStart": [{ "type": "command", "powershell": "node \"$HOME/.copilot/team/team-hook.mjs\" subagentStart", "bash": "node \"$HOME/.copilot/team/team-hook.mjs\" subagentStart", "timeoutSec": 5 }],
+    "subagentStop":  [{ "type": "command", "powershell": "node \"$HOME/.copilot/team/team-hook.mjs\" subagentStop",  "bash": "node \"$HOME/.copilot/team/team-hook.mjs\" subagentStop",  "timeoutSec": 5 }]
+  }
+}
