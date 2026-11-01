@@ -1,5 +1,7 @@
 # Team workflow kit (GitHub Copilot)
 
+Start with `docs/OVERVIEW.md` for the flow, the repo map, what is proven and the improvement design. The sections below are older notes.
+
 One Jira story at a time, per repo, from the story only. Built in-house: skills, agents and one dependency-free Node script.
 
 ## Layout
