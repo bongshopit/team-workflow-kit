@@ -18,7 +18,7 @@ Record that this skill started: `team note-skill <TICKET> team-run --agent <your
 1. Find the change folder: `<repo>/.team/changes/<TICKET>/` in each repo the story touches.
    - No folder yet: run the `team-explore` skill, then continue.
 2. For each folder run `team next-action <folder> --json` and read `state`, `action`, `agent`, `detail`.
-3. Dispatch by `action`:
+3. Dispatch by `action`. "Start the X agent" always means calling the subagent tool (`runSubagent`) with agent X. Never run X's skill in your own chat:
 
    | action | Do |
    |---|---|
@@ -39,6 +39,7 @@ Record that this skill started: `team note-skill <TICKET> team-run --agent <your
 5. Finish with one short status per repo: state, what is next, who owns it.
 
 ## Never
+- Never run the `team-test-plan`, `team-apply` or `team-review` skill yourself. They belong to `qe`, `dev` and `reviewer`.
 - Never edit `status.json`, source code, or the proposal yourself. Delegate.
 - Never skip a gate. Approval is `team approve`, run by or for a human.
 - Never start a downstream repo before its upstream is ready.

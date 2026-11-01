@@ -59,17 +59,25 @@ for (const c of calls) {
 
 // Hook events (written by team-hook.mjs) carry no ticket, so they are matched by time to this ticket's window.
 const hookFile = path.join(home, "hooks", "events.jsonl");
-const hookEvents = [];
+const hookAll = [];
 if (fs.existsSync(hookFile)) {
   for (const l of fs.readFileSync(hookFile, "utf8").split("\n").filter(Boolean)) {
-    try { const e = JSON.parse(l); if (e.at_ms >= t0 && e.at_ms <= t1 && (!e.repo || repos.includes(e.repo) || e.repo === "(unknown)")) hookEvents.push(e); } catch { /* skip */ }
+    try { const e = JSON.parse(l); if (e.at_ms >= t0 && e.at_ms <= t1) hookAll.push(e); } catch { /* skip */ }
   }
 }
+// The hook only knows the folder VS Code is open on (for example "kit"), which is often not the ticket's repo. Keep an event if it names no repo,
+// names one of this ticket's repos, or shares a tool call id with a span assigned to this ticket.
+const byId = new Map(spans.map((s) => [s.span, s]));
+const byCall = new Map(spans.filter((s) => s.callId).map((s) => [s.callId, s]));
+const mineIds = new Set(mine.map((s) => s.span));
+const hookEvents = hookAll.filter((e) => {
+  if (!e.repo || e.repo === "(unknown)" || repos.includes(e.repo)) return true;
+  const sp = findSpanByCallId(e.tool_use_id, byCall);
+  return Boolean(sp && mineIds.has(sp.span));
+});
 const hookSkills = [...new Set(hookEvents.map((e) => e.skill).filter(Boolean))];
 const telemetrySkills = [...new Set(mine.map((s) => s.skill).filter(Boolean))];
 // A hook event and a telemetry tool span share the tool call id, so a skill read can be tied to the agent that did it.
-const byId = new Map(spans.map((s) => [s.span, s]));
-const byCall = new Map(spans.filter((s) => s.callId).map((s) => [s.callId, s]));
 const hookBy = {};
 for (const e of hookEvents) {
   if (!e.skill) continue;

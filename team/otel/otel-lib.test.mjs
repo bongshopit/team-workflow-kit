@@ -361,3 +361,21 @@ test("a skill that was only read is flagged as loaded, not applied", () => {
   assert.equal(r.hook, true);
   assert.match(r.flag, /loaded only/);
 });
+
+test("a hook event from the folder VS Code is open on still counts when its tool call belongs to the ticket", () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "otel-home-"));
+  for (const d of ["calls", "hooks", path.join("telemetry", "spool")]) fs.mkdirSync(path.join(home, d), { recursive: true });
+  const t = Date.now() - 120000;
+  fs.writeFileSync(path.join(home, "calls", "PROJ-9.jsonl"), JSON.stringify(call({ ticket: "PROJ-9", cmd: "init-change", start_ms: t + 5000, end_ms: t + 5100, state_before: null, state_after: "explored" })) + "\n");
+  const spans = [
+    S({ trace: "T1", span: "root", name: "invoke_agent", kind: "agent", agent: "orchestrator", start: t, end: t + 9000, conv: "C1" }),
+    chat({ trace: "T1", span: "llm", parent: "root", agent: "panel/editAgent", start: t + 100, end: t + 900, conv: "C1" }),
+    S({ trace: "T1", span: "rd", parent: "llm", name: "execute_tool read_file", kind: "tool", tool: "read_file", callId: "call_ZZZZZZZZZZZZZZZZZZZZ", start: t + 1000, end: t + 1100, conv: "C1" }),
+    terminal({ trace: "T1", span: "term", parent: "llm", start: t + 4000, end: t + 6000, conv: "C1" }),
+  ];
+  fs.writeFileSync(path.join(home, "telemetry", "spool", "d.jsonl"), spans.map((s) => JSON.stringify(s)).join("\n") + "\n");
+  fs.writeFileSync(path.join(home, "hooks", "events.jsonl"), JSON.stringify({ at_ms: t + 1050, event: "postToolUse", tool: "read_file", skill: "team-run", tool_use_id: "call_ZZZZZZZZZZZZZZZZZZZZ__vscode-1", repo: "kit", arg_keys: [], payload_keys: [] }) + "\n");
+  const j = JSON.parse(spawnSync(process.execPath, [path.join(DIR, "otel-report.mjs"), "PROJ-9", "--home", home, "--json"], { encoding: "utf8" }).stdout);
+  assert.equal(j.hookEvents, 1);
+  assert.equal(j.skillEvidence.find((e) => e.skill === "team-run").hook, true);
+});
