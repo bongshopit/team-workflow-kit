@@ -33,6 +33,7 @@ A ticket id, for example `PROJ-123`. The story already carries its ACs and scena
    | `human` | stop. Print the blocked reason and ask for a decision |
    | `none` | nothing to do |
 
+Paths: take the change folder from `team ticket <TICKET> --json` (field `folder`) or from the output of `init-change`, and pass exactly that string to every command and to every subagent. Never retype, shorten or rebuild an absolute path yourself; a mistyped user folder was the cause of many failed calls.
 4. After each delegated agent finishes, run `team next-action` again and continue until you reach a stop.
 5. Finish with one short status per repo: state, what is next, who owns it.
 

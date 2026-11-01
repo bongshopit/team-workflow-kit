@@ -99,7 +99,18 @@ const idDiag = {
   hookIdShape: shape(hookEvents.find((e) => e.tool_use_id)?.tool_use_id),
   spanIdShape: shape([...byCall.keys()][0]),
 };
-const report = { ticket, flow: flowFromCalls(calls), repos, skillEvidence: evidence, idDiag, hookEvents: hookEvents.length, scriptCalls: Object.fromEntries(cmdCounts), skillNotes, repoSpansNote: "agents are by role",  coverage: { ...stats, assignedToTicket: mine.length }, perRepo: {} };
+// Hook events whose path did not exist or was a folder, by role (found through the tool call id).
+const pathProblems = (() => {
+  const m = new Map();
+  for (const e of hookEvents) {
+    if (!["missing", "wrong-home", "directory"].includes(e.path_check)) continue;
+    const sp = findSpanByCallId(e.tool_use_id, byCall);
+    const key = `${(sp && resolveRole(sp, byId)) || "?"}|${e.tool || "?"}|${e.path_check}`;
+    m.set(key, (m.get(key) || 0) + 1);
+  }
+  return [...m].map(([k, count]) => { const [role, tool, kind] = k.split("|"); return { role, tool, kind, count }; }).sort((x, y) => y.count - x.count);
+})();
+const report = { ticket, flow: flowFromCalls(calls), pathProblems, repos, skillEvidence: evidence, idDiag, hookEvents: hookEvents.length, scriptCalls: Object.fromEntries(cmdCounts), skillNotes, repoSpansNote: "agents are by role",  coverage: { ...stats, assignedToTicket: mine.length }, perRepo: {} };
 for (const repo of repos) {
   const repoCalls = calls.filter((c) => c.repo === repo);
   const phases = phasesFromCalls(repoCalls);
@@ -184,3 +195,7 @@ for (const [repo, r] of Object.entries(report.perRepo)) {
   for (const t of r.toolsByRole) { seen[t.role] = (seen[t.role] || 0) + 1; if (seen[t.role] <= 4) console.log(`     ${t.role.padEnd(24)} ${t.tool.padEnd(22)} x${t.count}`); }
 }
 
+if (report.pathProblems.length) {
+  console.log("\n   path problems seen by the hook (the path did not exist, or was a folder):");
+  for (const p of report.pathProblems.slice(0, 10)) console.log(`     ${p.role.padEnd(24)} ${p.tool.padEnd(22)} ${p.kind.padEnd(11)} x${p.count}`);
+}

@@ -494,3 +494,28 @@ test("ticket lists the repos with state and the merge order, upstream first", ()
   assert.equal(j.cycle, false);
   fail(["ticket", "PROJ-999"], 1, t.env);
 });
+
+test("a mistyped parent path is resolved through the registry, and the call log records the right repo", () => {
+  const t = twoRepos("PROJ-710");
+  // same tail <repo>/.team/changes/<TICKET>, wrong prefix (a retyped user folder)
+  const wrong = path.join(path.parse(t.down).root, "Users", "nobody-here", "ws", "order-service", ".team", "changes", "PROJ-710");
+  const r = ok(["next-action", wrong, "--json"], t.env);
+  assert.equal(JSON.parse(r.out).state, "explored");
+  assert.match(r.err, /using the registered folder/);
+  const row = readCalls("PROJ-710", t.env.TEAM_HOME).filter((x) => x.cmd === "next-action").pop();
+  assert.equal(row.repo, "order-service");
+  assert.equal(row.code, 0);
+  // an unknown ticket still fails the plain way
+  fail(["next-action", path.join(path.parse(t.down).root, "nope", "x", ".team", "changes", "PROJ-799")], 1, t.env);
+});
+
+test("a failed call logs every line of the reason, not only the first", () => {
+  const t = twoRepos("PROJ-711");
+  fail(["set-status", t.up, "review"], 2, t.env);
+  const t2 = twoRepos("PROJ-712");
+  t2.advance(t2.up, "approved");
+  ok(["set-status", t2.up, "applying"], t2.env);
+  fail(["validate-change", t2.up, "--for", "review", "--skip-tests"], 5, t2.env);
+  const row = readCalls("PROJ-712", t2.env.TEAM_HOME).find((x) => x.cmd === "validate-change");
+  assert.match(row.reason, /validation failed for review: \| .*task\(s\) not ticked/);
+});

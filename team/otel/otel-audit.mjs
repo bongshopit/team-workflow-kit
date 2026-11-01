@@ -47,6 +47,8 @@ export function signalsFor(report, flow) {
   const unseen = (report.skillEvidence || []).filter((e) => !e.noted && !e.inferred && !e.hook && !e.telemetry).map((e) => e.skill);
   if (report.hookEvents === 0) out.push("No hook events were found for this ticket: the hook is not installed, or did not fire.");
   else if (report.hookEvents > 0 && unseen.length && flow.finalState && flow.finalState !== "explored") out.push(`No evidence for: ${unseen.join(", ")}.`);
+  const badPaths = (report.pathProblems || []).reduce((n, p) => n + p.count, 0);
+  if (badPaths) out.push(`${badPaths} file or folder tool call${badPaths > 1 ? "s" : ""} used a path that did not exist or was a folder (${[...new Set(report.pathProblems.map((p) => `${p.role} ${p.tool}`))].slice(0, 3).join(", ")}).`);
   const c = report.coverage || {};
   if (c.calls && c.matchedCalls < c.calls) out.push(`${c.calls - c.matchedCalls} script call(s) matched no terminal span, so some spans may be unassigned.`);
   return out;
@@ -91,8 +93,9 @@ export function renderAudit(report, flow, opts = {}) {
     return [e.skill, (e.hookBy || []).join(", ") || "-", ev];
   })));
 
+  const paths = report.pathProblems || [];
   const fails = repos.flatMap((repo) => report.perRepo[repo].failures.map((f) => ({ repo, ...f })));
-  if (flow.scriptFailures.length || fails.length) {
+  if (flow.scriptFailures.length || fails.length || paths.length) {
     L.push("", "## Failures", "");
     if (flow.scriptFailures.length) {
       L.push("team.mjs calls:", "");
@@ -102,6 +105,11 @@ export function renderAudit(report, flow, opts = {}) {
     if (fails.length) {
       L.push("Tool calls:", "");
       L.push(table(["role", "tool", "error", "count"], fails.slice(0, 10).map((f) => [f.role, f.tool, f.error, f.count])));
+      L.push("");
+    }
+    if (paths.length) {
+      L.push("Paths that did not exist (seen by the hook):", "");
+      L.push(table(["role", "tool", "kind", "count"], paths.slice(0, 10).map((p) => [p.role, p.tool, p.kind, p.count])));
     }
   }
 

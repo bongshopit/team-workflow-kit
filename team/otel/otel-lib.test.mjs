@@ -438,3 +438,28 @@ test("report --md --out writes the audit file", () => {
   assert.equal(r.status, 0, r.stderr);
   assert.match(fs.readFileSync(out, "utf8"), /# Audit: PROJ-12/);
 });
+
+test("a retried subagent call gets its own role label", () => {
+  assert.equal(roleOf(S({ agent: "retry-error-tool/runSubagent-reviewer" })), "reviewer (subagent retry)");
+  assert.equal(roleOf(S({ agent: "tool/runSubagent-reviewer" })), "reviewer (subagent)");
+});
+
+test("an audit call counts as evidence that team-summary ran", () => {
+  const rows = skillEvidence({ calls: [call({ cmd: "audit", code: 0 })], hookSkills: ["team-summary"] });
+  const r = rows.find((e) => e.skill === "team-summary");
+  assert.equal(r.inferred, true);
+  assert.equal(r.flag, null);
+});
+
+test("hook classifies the path the agent used without keeping it", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "pc-"));
+  fs.writeFileSync(path.join(dir, "a.txt"), "x");
+  const check = (args) => runHook("postToolUse", JSON.stringify({ hook_event_name: "PostToolUse", session_id: "s", tool_name: "read_file", tool_input: args, tool_use_id: "c", cwd: dir })).rows[0].path_check;
+  assert.equal(check({ filePath: path.join(dir, "a.txt") }), "ok");
+  assert.equal(check({ filePath: dir }), "directory");
+  assert.equal(check({ filePath: path.join(dir, "nope.txt") }), "missing");
+  assert.equal(check({ filePath: "src/a.txt" }), "relative");
+  assert.equal(check({ filePath: "C:\\Users\\somebody-else-entirely\\x\\y.txt" }), "wrong-home");
+  const text = JSON.stringify(runHook("postToolUse", JSON.stringify({ tool_name: "read_file", tool_input: { filePath: path.join(dir, "nope.txt") }, cwd: dir })).rows);
+  assert.ok(!text.includes("nope.txt"));
+});

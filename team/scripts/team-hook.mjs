@@ -39,6 +39,21 @@ function findSkillSrc(value, depth = 0) {
   if (typeof value === "object") { for (const v of Object.values(value)) { const x = findSkillSrc(v, depth + 1); if (x) return x; } }
   return null;
 }
+// For file and folder tools: does the path the agent used exist? Only a category is kept, never the path.
+// "wrong-home" means a C:\Users\<name> that is not this machine's user folder (a retyped path).
+function pathCheck(args) {
+  let o = args;
+  if (typeof o === "string" && /^\s*\{/.test(o)) { try { o = JSON.parse(o); } catch { return null; } }
+  const p = o && typeof o === "object" ? (o.filePath ?? o.path ?? o.dirPath ?? null) : null;
+  if (typeof p !== "string" || !p) return null;
+  try {
+    if (!path.isAbsolute(p) && !/^[a-z]:[\\/]/i.test(p)) return "relative";
+    if (fs.existsSync(p)) return fs.statSync(p).isDirectory() ? "directory" : "ok";
+    const m = /^[a-z]:[\\/]+users[\\/]+([^\\/]+)/i.exec(p);
+    if (m && m[1].toLowerCase() !== path.basename(os.homedir()).toLowerCase()) return "wrong-home";
+    return "missing";
+  } catch { return null; }
+}
 function keysOf(value) {
   if (typeof value === "string" && /^\s*\{/.test(value)) { try { value = JSON.parse(value); } catch { return []; } }
   return value && typeof value === "object" && !Array.isArray(value) ? Object.keys(value) : [];
@@ -71,6 +86,7 @@ function describe(event, payload) {
     arg_keys: keysOf(args),
     skill: findSkill(args),
     skill_src: findSkillSrc(args),
+    path_check: pathCheck(args),
     agent: typeof (p.agentType ?? p.agent_type ?? p.agentName) === "string" ? (p.agentType ?? p.agent_type ?? p.agentName) : null,
     has_agent_id: Boolean(p.agentId ?? p.agent_id),
     // Identifiers only. session_id and tool_use_id let the report join this event to a telemetry span; neither holds content.

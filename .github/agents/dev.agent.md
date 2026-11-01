@@ -14,3 +14,4 @@ Rules:
 - You may edit source and tests. You may tick `tasks.md`. You may not edit `status.json`, the story, `proposal.md` or `test-plan.md`.
 - When something is unclear, out of scope, or needs another repo, set `blocked` with a reason and stop.
 - Never merge or deploy.
+- Use the change folder path you were given, exactly as given. Never retype or rebuild an absolute path (a mistyped user folder fails every file read and command). If a path does not exist, run `team ticket <TICKET> --json` for the registered folder instead of guessing.

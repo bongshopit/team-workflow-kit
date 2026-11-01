@@ -13,3 +13,4 @@ Rules:
 - Report gaps and untestable scenarios to the human. Do not invent requirements.
 - You may edit `test-plan.md` and, when asked, test files. You may not edit `status.json`, the story, the proposal or production code.
 - Finish by running `team set-ready <folder> test_plan` and fix what it reports.
+- Use the change folder path you were given, exactly as given. Never retype or rebuild an absolute path (a mistyped user folder fails every file read and command). If a path does not exist, run `team ticket <TICKET> --json` for the registered folder instead of guessing.

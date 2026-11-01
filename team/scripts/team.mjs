@@ -95,6 +95,28 @@ function allowedFrom(st) {
   return [...new Set([st.blocked_from, "applying", "proposed", "abandoned"].filter(Boolean))];
 }
 
+// An agent sometimes retypes an absolute path wrongly (a wrong user folder, for example). The tail of the path (<repo>/.team/changes/<TICKET>) is usually right,
+// so when the folder does not exist, use the folder registered for that ticket and repo. The note is printed once per input.
+const resolvedFolders = new Map();
+function folderArg(p) {
+  const abs = path.resolve(p);
+  if (resolvedFolders.has(abs)) return resolvedFolders.get(abs);
+  let out = abs;
+  if (!fs.existsSync(statusPath(abs))) {
+    const ticket = path.basename(abs);
+    if (TICKET_RE.test(ticket)) {
+      const repo = path.basename(path.resolve(abs, "..", "..", ".."));
+      const e = readRegistry(ticket).repos[repo];
+      if (e && fs.existsSync(statusPath(e.folder))) {
+        console.error(`note: ${abs} does not exist, using the registered folder ${e.folder}`);
+        out = e.folder;
+      }
+    }
+  }
+  resolvedFolders.set(abs, out);
+  return out;
+}
+
 // ---------- tickets that span repos ----------
 // A local registry (<TEAM_HOME>/tickets/<TICKET>/ticket.json) records where each repo's change folder is on this machine.
 // It is derived data: any command run on a change folder registers it. status.json stays the source of truth.
@@ -313,7 +335,7 @@ function callContext(cmd, pos) {
   if (cmd === "init-change" && pos[0] && pos[1]) return { ticket: pos[1], repo: path.basename(path.resolve(pos[0])), folder: null };
   if (cmd === "note-skill" && pos[0]) return { ticket: pos[0], repo: repoForTicket(pos[0]), folder: null };
   if (["help", "calls", "ticket"].includes(cmd) || !pos[0]) return null;
-  const folder = path.resolve(pos[0]);
+  const folder = folderArg(pos[0]);
   return { ticket: path.basename(folder), repo: path.basename(path.resolve(folder, "..", "..", "..")), folder };
 }
 function stateOf(folder) {
@@ -383,7 +405,7 @@ const COMMANDS = {
   },
 
   "set-status"(pos, flags) {
-    const folder = path.resolve(need(pos[0], "change folder"));
+    const folder = folderArg(need(pos[0], "change folder"));
     const to = need(pos[1], "target state");
     const st = load(folder);
     LOG.detail = to;
@@ -393,7 +415,7 @@ const COMMANDS = {
   },
 
   "set-ready"(pos) {
-    const folder = path.resolve(need(pos[0], "change folder"));
+    const folder = folderArg(need(pos[0], "change folder"));
     const what = need(pos[1], "what is ready (test_plan)");
     LOG.detail = what;
     if (what !== "test_plan") throw new Fail("only test_plan can be set by hand. The proposal is marked ready by set-status proposed", 64);
@@ -412,12 +434,12 @@ const COMMANDS = {
   },
 
   "request-review"(pos) {
-    const folder = path.resolve(need(pos[0], "change folder"));
+    const folder = folderArg(need(pos[0], "change folder"));
     console.log(maybeRequestReview(folder, load(folder)));
   },
 
   approve(pos, flags) {
-    const folder = path.resolve(need(pos[0], "change folder"));
+    const folder = folderArg(need(pos[0], "change folder"));
     const who = need(pos[1], "approver name");
     const st = load(folder);
     if (st.state !== "proposed") throw new Fail(`approve needs state proposed, state is ${st.state}`, 3);
@@ -429,7 +451,7 @@ const COMMANDS = {
   },
 
   "validate-change"(pos, flags) {
-    const folder = path.resolve(need(pos[0], "change folder"));
+    const folder = folderArg(need(pos[0], "change folder"));
     const st = load(folder);
     const modeByState = { approved: "apply", applying: "review", review: "done" };
     const mode = flags.for || modeByState[st.state];
@@ -441,7 +463,7 @@ const COMMANDS = {
   },
 
   "record-failure"(pos) {
-    const folder = path.resolve(need(pos[0], "change folder"));
+    const folder = folderArg(need(pos[0], "change folder"));
     const test = need(pos[1], "test name");
     const st = load(folder);
     if (st.state !== "applying") throw new Fail(`record-failure needs state applying, state is ${st.state}`, 5);
@@ -458,7 +480,7 @@ const COMMANDS = {
   },
 
   "next-action"(pos, flags) {
-    const folder = path.resolve(need(pos[0], "change folder"));
+    const folder = folderArg(need(pos[0], "change folder"));
     const st = load(folder);
     const has = (f) => exists(folder, f);
     let r;
@@ -509,7 +531,7 @@ const COMMANDS = {
   },
 
   "set-depends"(pos) {
-    const folder = path.resolve(need(pos[0], "change folder"));
+    const folder = folderArg(need(pos[0], "change folder"));
     const st = load(folder);
     if (["done", "abandoned"].includes(st.state)) throw new Fail(`change is ${st.state}`, 2);
     st.depends_on = parseDepends(need(pos[1], "repo names or none"), st.repo);
@@ -564,7 +586,7 @@ const COMMANDS = {
   // Writes the ticket's audit to <TEAM_HOME>/tickets/<TICKET>/audit.md and a copy <TICKET>-audit.md into the change folder: cost by role and phase, flow, skills, failures. Needs the otel report script next to this one
   // (otel/otel-report.mjs, or ../otel/ in the kit layout), or TEAM_OTEL_REPORT. It changes no state.
   audit(pos) {
-    const folder = path.resolve(need(pos[0], "change folder"));
+    const folder = folderArg(need(pos[0], "change folder"));
     load(folder);
     const ticket = path.basename(folder);
     const here = path.dirname(fileURLToPath(import.meta.url));
@@ -620,7 +642,7 @@ function main() {
     fn(pos, flags);
   } catch (e) {
     code = e instanceof Fail ? e.code : 1;
-    reason = String(e && e.message ? e.message : e).split("\n")[0].slice(0, 160);
+    reason = String(e && e.message ? e.message : e).split("\n").map((x) => x.trim()).filter(Boolean).join(" | ").slice(0, 300);
     throw e;
   } finally {
     const end = Date.now();

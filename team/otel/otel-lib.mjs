@@ -191,7 +191,7 @@ export const SKILLS = [
   { name: "team-test-plan", agent: "qe", says: "set-ready test_plan (the draft pass leaves no call)", test: (c) => c.cmd === "set-ready" },
   { name: "team-apply", agent: "dev", says: "set-status applying", test: (c) => c.cmd === "set-status" && c.detail === "applying" },
   { name: "team-review", agent: "reviewer", says: "next-action saw review.md (summary or wait-gate-2)", test: (c) => c.cmd === "next-action" && /^(summary|wait-gate-2)/.test(c.detail || "") },
-  { name: "team-summary", agent: "orchestrator", says: "next-action saw the summary (wait-gate-2)", test: (c) => c.cmd === "next-action" && /^wait-gate-2/.test(c.detail || "") },
+  { name: "team-summary", agent: "orchestrator", says: "audit ran, or next-action saw the summary (wait-gate-2)", test: (c) => c.cmd === "audit" || c.cmd === "retro" || (c.cmd === "next-action" && /^wait-gate-2/.test(c.detail || "")) },
 ];
 
 export function skillEvidence({ calls = [], hookSkills = [], telemetrySkills = [], hookBy = {} }) {
@@ -217,6 +217,8 @@ export function roleOf(s) {
   const a = s.agent || "";
   const sub = /^tool\/runSubagent-(.+)$/.exec(a);
   if (sub) return `${sub[1]} (subagent)`;
+  const retry = /^retry-error-tool\/runSubagent-(.+)$/.exec(a); // Copilot re-sent a subagent call after an error
+  if (retry) return `${retry[1]} (subagent retry)`;
   if (a === "panel/editAgent" || a === "GitHub Copilot Chat") return s.mode ? `main [${s.mode}]` : "main chat";
   if (["title", "progressMessages"].includes(a) || a.startsWith("copilotLanguageModelWrapper")) return "helper";
   return a || null;

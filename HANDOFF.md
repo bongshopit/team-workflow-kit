@@ -112,3 +112,8 @@ Decision: one developer runs a ticket across all its repos cloned on one machine
 - Per repo, committed with the PR: `<repo>/.team/changes/<TICKET>/` (status.json, proposal, tasks, test plan, review, summary, and a copy of `<TICKET>-audit.md`).
 - Per ticket, on this machine: `~/.copilot/team/tickets/<TICKET>/ticket.json` (registry) and `audit.md` (whole ticket, all repos). Calls, hooks and telemetry stay under `~/.copilot/team/`.
 - Explore scratch stays in the workspace (`.team-scratch/`, git-ignored): agents write there without extra prompts. Moving it under `~/.copilot` would mean agent file edits outside the workspace.
+
+## First real multi-repo run: PROJ-103 (2026-11-01)
+- Worked: `wait-upstream` held order-service while inventory-service applied; it continued once inventory reached review. `team ticket` showed both repos and the merge order. About 22 credits for two repos.
+- Problem found in the call log: 7 failed calls came from a retyped absolute path (`C:\Users\mnghia\...` instead of `tmnghia`). Likely also behind many failed read_file/list_dir calls (QE and dev looped on them).
+- Fixes: `folderArg` in team.mjs resolves a wrong prefix through the registry; skills and agents say to copy the folder from `team ticket --json`; the hook records `path_check` (ok, missing, directory, relative, wrong-home) so the report can show which failed reads were bad paths; failure reasons keep every line; retried subagent calls get their own label; an audit call counts as team-summary evidence; explore writes the report before init-change.
