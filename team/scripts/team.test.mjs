@@ -388,7 +388,7 @@ test("note-skill does not mistake a workspace folder that holds repos for the ti
   assert.equal(readCalls("PROJ-611", home)[0].repo, "order-service");
 });
 
-test("retro writes <TICKET>-retro.md into the change folder and changes no state", () => {
+test("audit writes <TICKET>-audit.md into the change folder and changes no state", () => {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), "team-home-"));
   const repo = fs.mkdtempSync(path.join(os.tmpdir(), "team-repo-"));
   fs.writeFileSync(path.join(repo, "r.md"), "# f\n");
@@ -397,10 +397,23 @@ test("retro writes <TICKET>-retro.md into the change folder and changes no state
   const before = fs.readFileSync(path.join(folder, "status.json"), "utf8");
   // a stand-in for the report script: writes the file it is asked to
   const stub = path.join(repo, "stub-report.mjs");
-  fs.writeFileSync(stub, 'import fs from "node:fs"; const a = process.argv; fs.writeFileSync(a[a.indexOf("--out") + 1], "# Retro: " + a[2] + "\\n");\n');
-  ok(["retro", folder], { TEAM_HOME: home, TEAM_OTEL_REPORT: stub });
-  assert.equal(fs.readFileSync(path.join(folder, "PROJ-620-retro.md"), "utf8"), "# Retro: PROJ-620\n");
+  fs.writeFileSync(stub, 'import fs from "node:fs"; const a = process.argv; fs.writeFileSync(a[a.indexOf("--out") + 1], "# Audit: " + a[2] + "\\n");\n');
+  ok(["audit", folder], { TEAM_HOME: home, TEAM_OTEL_REPORT: stub });
+  assert.equal(fs.readFileSync(path.join(folder, "PROJ-620-audit.md"), "utf8"), "# Audit: PROJ-620\n");
   assert.equal(fs.readFileSync(path.join(folder, "status.json"), "utf8"), before);
-  assert.ok(readCalls("PROJ-620", home).some((r) => r.cmd === "retro" && r.code === 0));
-  fail(["retro", folder], 64, { TEAM_HOME: home, TEAM_OTEL_REPORT: path.join(repo, "missing.mjs") });
+  assert.ok(readCalls("PROJ-620", home).some((r) => r.cmd === "audit" && r.code === 0));
+  fail(["audit", folder], 64, { TEAM_HOME: home, TEAM_OTEL_REPORT: path.join(repo, "missing.mjs") });
+});
+
+test("the old command name retro still works and says it was renamed", () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "team-home-"));
+  const repo = fs.mkdtempSync(path.join(os.tmpdir(), "team-repo-"));
+  fs.writeFileSync(path.join(repo, "r.md"), "# f\n");
+  ok(["init-change", repo, "PROJ-621", "--report", path.join(repo, "r.md"), "--acs", "1"], { TEAM_HOME: home });
+  const folder = path.join(repo, ".team", "changes", "PROJ-621");
+  const stub = path.join(repo, "stub-report.mjs");
+  fs.writeFileSync(stub, 'import fs from "node:fs"; const a = process.argv; fs.writeFileSync(a[a.indexOf("--out") + 1], "x\\n");\n');
+  const r = ok(["retro", folder], { TEAM_HOME: home, TEAM_OTEL_REPORT: stub });
+  assert.ok(fs.existsSync(path.join(folder, "PROJ-621-audit.md")));
+  assert.match(r.err || "", /now 'team audit'/);
 });

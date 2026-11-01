@@ -1,4 +1,4 @@
-// Turns the ticket report (otel-report.mjs --json) and the call log into a markdown retro. Pure functions, no I/O.
+// Turns the ticket report (otel-report.mjs --json) and the call log into a markdown audit of one ticket's workflow run. Pure functions, no I/O.
 // Everything in it is a measured number or a plain statement of what the data shows. There is no advice text.
 
 const min = (ms) => (ms >= 60000 ? `${(ms / 60000).toFixed(1)} min` : `${Math.round(ms / 1000)} s`);
@@ -52,14 +52,14 @@ export function signalsFor(report, flow) {
   return out;
 }
 
-export function renderRetro(report, flow, opts = {}) {
+export function renderAudit(report, flow, opts = {}) {
   const L = [];
   const repos = Object.keys(report.perRepo);
   const credits = repos.reduce((s, r) => s + report.perRepo[r].total.credits, 0);
   const llm = repos.reduce((s, r) => s + report.perRepo[r].total.llmCalls, 0);
   const tin = repos.reduce((s, r) => s + report.perRepo[r].total.tokensIn, 0);
   const tout = repos.reduce((s, r) => s + report.perRepo[r].total.tokensOut, 0);
-  L.push(`# Retro: ${report.ticket}`);
+  L.push(`# Audit: ${report.ticket}`);
   L.push("");
   L.push(`Repo${repos.length > 1 ? "s" : ""}: ${repos.join(", ") || "(none)"}. Final state: ${flow.finalState || "unknown"}. Generated ${opts.generated || new Date().toISOString().slice(0, 16).replace("T", " ") + " UTC"}.`);
   L.push(`From the first to the last team.mjs call: ${min(flow.wallMs)}${flow.gate1WaitMs != null ? ` (of which ${min(flow.gate1WaitMs)} waiting at Gate 1)` : ""}.`);

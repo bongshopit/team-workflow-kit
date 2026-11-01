@@ -62,7 +62,7 @@ Start every session with the prompt `/run <ticket or story file>` (`.github/prom
 ## Telemetry tasks
 a. Skill evidence (done, needs a real run): `otel-report.mjs` prints noted / inferred / hook / telemetry per skill. Discovery hook: `team/scripts/team-hook.mjs` + `team/hooks/` (install with `install-hooks.ps1`); it logs tool names, argument key names and SKILL.md reads to `~/.copilot/team/hooks/events.jsonl`. Open: confirm hooks fire in VS Code (preview, may be blocked by policy), whether subagent tool calls fire them, and how skills are loaded. Scope for now: VS Code only; Copilot CLI and IntelliJ later.
 b. DONE (needs a real run): `otel-collect.mjs` spools compact span records; `otel-report.mjs <TICKET>` attributes them to a ticket through the call log and prints credits, tokens, tool errors and loops per phase. Check how many calls matched a terminal span on real data. Still to add: Copilot CLI and IntelliJ spans, logs for tool success flags.
-c. `team retro <folder>`: phase times from `status.json`, credits, tokens (cache shown apart), tool errors, loops, skills used vs the call log.
+c. `team audit <folder>` (done, see below): phase times from `status.json`, credits, tokens (cache shown apart), tool errors, loops, skills used vs the call log.
 d. `team report` across repos for a sprint, joined with the usage dashboard.
 
 ## Working rules for the next session
@@ -89,8 +89,12 @@ d. `team report` across repos for a sprint, joined with the usage dashboard.
 The hook gives skill evidence for all seven skills (read by the right agent, joined to telemetry by tool call id), so the "First action: note-skill" step was removed from every skill. The `note-skill` command stays in team.mjs for manual use and for clients without hooks (Copilot CLI and IntelliJ are not tested yet; re-add the first action there if their hooks do not report skill reads).
 The hook must be installed (`team/hooks/install-hooks.ps1`) or the report shows "no read of the skill was seen".
 
-## team retro (2026-11-01)
-`node team.mjs retro <change folder>` writes `<TICKET>-retro.md` into the change folder: signals, cost by role and phase, time per state, rework rounds, Gate 1 wait, skills with who read them, failed script and tool calls, coverage. It changes no state.
+## team audit (2026-11-01)
+Named audit, not retro, so it is not confused with the scrum retro. `team retro` still works for one release and says it was renamed.
+`node team.mjs audit <change folder>` writes `<TICKET>-audit.md` into the change folder: signals, cost by role and phase, time per state, rework rounds, Gate 1 wait, skills with who read them, failed script and tool calls, coverage. It changes no state.
 It runs `otel/otel-report.mjs --md --out ...` found next to team.mjs (`otel/`, or `../otel/` in the kit), or `TEAM_OTEL_REPORT`. Installed copy: `~/.copilot/team/otel/` needs otel-report.mjs, otel-lib.mjs and otel-retro.mjs.
-team-summary runs it as step 2. Re-run it after Gate 2 for the final numbers.
+team-summary runs it as step 2. Re-run it after Gate 2 for the final numbers. The module is `otel/otel-audit.mjs`.
 Not built: `team report` (all tickets in a period).
+
+## Improvement flow, two speeds (agreed 2026-11-01)
+After a ticket is done: `team audit` -> if it has signals, a fresh `/improve` chat applies one small change locally (a commit on `local/<dev>` in the kit, with signal, hypothesis and baseline in the message) and notes it in the ledger -> at the sprint retro the team reviews the local changes from all developers and cherry-picks the agreed ones. See docs/OVERVIEW.md.

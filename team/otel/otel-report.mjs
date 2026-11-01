@@ -4,7 +4,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { flowFromCalls, renderRetro } from "./otel-retro.mjs";
+import { flowFromCalls, renderAudit } from "./otel-audit.mjs";
 import { attribute, phasesFromCalls, phaseAt, totals, findLoops, dedupe, skillEvidence, roleOf as roleName, resolveRole, findSpanByCallId } from "./otel-lib.mjs";
 
 const args = process.argv.slice(2);
@@ -142,7 +142,7 @@ for (const repo of repos) {
 }
 if (asJson) { console.log(JSON.stringify(report, null, 2)); process.exit(0); }
 if (args.includes("--md")) {
-  const md = renderRetro(report, report.flow);
+  const md = renderAudit(report, report.flow);
   const out = flag("out", null);
   if (out) { fs.mkdirSync(path.dirname(path.resolve(out)), { recursive: true }); fs.writeFileSync(out, md); console.log(`wrote ${out}`); } else process.stdout.write(md);
   process.exit(0);

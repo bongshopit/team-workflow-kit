@@ -380,8 +380,8 @@ test("a hook event from the folder VS Code is open on still counts when its tool
   assert.equal(j.skillEvidence.find((e) => e.skill === "team-run").hook, true);
 });
 
-// ---- retro ----
-import { flowFromCalls, renderRetro, signalsFor } from "./otel-retro.mjs";
+// ---- audit ----
+import { flowFromCalls, renderAudit, signalsFor } from "./otel-audit.mjs";
 
 test("flow: time in each state, rework rounds, gate wait and failed calls come from the call log", () => {
   const T = 1_000_000;
@@ -405,7 +405,7 @@ test("flow: time in each state, rework rounds, gate wait and failed calls come f
   assert.equal(f.scriptFailures[0].reason, "tasks not ticked");
 });
 
-test("retro markdown has the sections, the numbers and the signals", () => {
+test("audit markdown has the sections, the numbers and the signals", () => {
   const report = {
     ticket: "PROJ-1", hookEvents: 5, coverage: { spans: 10, assignedToTicket: 8, calls: 3, matchedCalls: 3 },
     skillEvidence: [{ skill: "team-review", hook: true, inferred: true, noted: false, telemetry: false, hookBy: ["reviewer (subagent)"] }, { skill: "team-summary", hook: false, inferred: false, noted: false, telemetry: false, hookBy: [] }],
@@ -418,8 +418,8 @@ test("retro markdown has the sections, the numbers and the signals", () => {
     } },
   };
   const flow = { wallMs: 600000, states: [{ state: "review", at: 0, ms: 120000, open: true }], reworkRounds: 1, gate1WaitMs: 300000, scriptFailures: [{ cmd: "validate-change", detail: "review", code: 5, reason: "tasks not ticked" }], finalState: "review" };
-  const md = renderRetro(report, flow, { generated: "test" });
-  for (const part of ["# Retro: PROJ-1", "## Signals", "## Cost by role", "## Cost by phase", "## Flow", "## Skills", "## Failures", "## Coverage", "reviewer (subagent)", "Rework rounds: 1", "exit 5, tasks not ticked", "waiting at Gate 1"]) assert.ok(md.includes(part), part);
+  const md = renderAudit(report, flow, { generated: "test" });
+  for (const part of ["# Audit: PROJ-1", "## Signals", "## Cost by role", "## Cost by phase", "## Flow", "## Skills", "## Failures", "## Coverage", "reviewer (subagent)", "Rework rounds: 1", "exit 5, tasks not ticked", "waiting at Gate 1"]) assert.ok(md.includes(part), part);
   const sig = signalsFor(report, flow).join("\n");
   assert.match(sig, /reviewer \(subagent\) used 60% of the credits/);
   assert.match(sig, /50 read_file calls/);
@@ -428,13 +428,13 @@ test("retro markdown has the sections, the numbers and the signals", () => {
   assert.match(sig, /No evidence for: team-summary/);
 });
 
-test("report --md --out writes the retro file", () => {
+test("report --md --out writes the audit file", () => {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), "otel-home-"));
   for (const d of ["calls", "hooks", path.join("telemetry", "spool")]) fs.mkdirSync(path.join(home, d), { recursive: true });
   const t = Date.now() - 120000;
   fs.writeFileSync(path.join(home, "calls", "PROJ-12.jsonl"), JSON.stringify(call({ ticket: "PROJ-12", cmd: "init-change", start_ms: t + 5000, end_ms: t + 5100, state_before: null, state_after: "explored" })) + "\n");
-  const out = path.join(home, "out", "PROJ-12-retro.md");
+  const out = path.join(home, "out", "PROJ-12-audit.md");
   const r = spawnSync(process.execPath, [path.join(DIR, "otel-report.mjs"), "PROJ-12", "--home", home, "--md", "--out", out], { encoding: "utf8" });
   assert.equal(r.status, 0, r.stderr);
-  assert.match(fs.readFileSync(out, "utf8"), /# Retro: PROJ-12/);
+  assert.match(fs.readFileSync(out, "utf8"), /# Audit: PROJ-12/);
 });
