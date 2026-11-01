@@ -10,9 +10,6 @@ CLI: `node $HOME/.copilot/team/team.mjs` (called `team`).
 ## Preconditions
 State `review`, `review.md` says `Result: pass`, and `team next-action <folder> --json` says action `summary`.
 
-## First action
-Record that this skill started: `team note-skill <TICKET> team-summary --agent <your agent name>`. It changes no state. If it fails, carry on.
-
 ## Steps
 1. Read `proposal.md`, `tasks.md`, `test-plan.md`, `review.md` and the change's commits.
 2. Write `<TICKET>-summary.md` in the change folder:

@@ -11,9 +11,6 @@ CLI: `node $HOME/.copilot/team/team.mjs` (called `team`). Read-only on the repo.
 - Ticket id and the story (from the Jira connector, or a file the human points to).
 - The story must carry its ACs, each with at least one scenario. It already contains what the PRD contributed. Do not read or ask for the PRD.
 
-## First action
-Record that this skill started: `team note-skill <TICKET> team-explore --agent <your agent name>`. It changes no state. If it fails, carry on.
-
 ## Steps
 1. Read the story. List the AC numbers and their scenarios (`S<ac>.<n>`).
 2. Check the story is usable. Stop and ask the human (PO/BA) instead of continuing if:

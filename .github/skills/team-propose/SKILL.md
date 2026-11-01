@@ -11,9 +11,6 @@ CLI: `node $HOME/.copilot/team/team.mjs` (called `team`).
 `team next-action <folder> --json` says state `explored`. If not, stop.
 The QE agent may be writing the test plan at the same time. Do not wait for it.
 
-## First action
-Record that this skill started: `team note-skill <TICKET> team-propose --agent <your agent name>`. It changes no state. If it fails, carry on.
-
 ## Steps
 1. Read `explore-report.md` and the story. The ACs and scenarios stay in the story. Refer to them by id (AC1, S2.2). Never copy them.
 2. Write `proposal.md` in the change folder:

@@ -203,7 +203,7 @@ export function skillEvidence({ calls = [], hookSkills = [], telemetrySkills = [
     const row = { skill: k.name, agent: k.agent, noted: noted.has(k.name), inferred: ok.some(k.test), hook: hook.has(k.name), hookBy: hookBy[k.name] || [], telemetry: tele.has(k.name), signature: k.says };
     const seen = row.noted || row.inferred || row.hook || row.telemetry;
     if (!seen) row.flag = "no evidence";
-    else if (row.inferred && !row.noted && !row.hook && !row.telemetry) row.flag = "step happened but the skill was never noted: the agent skipped the first action, or did the step without the skill";
+    else if (row.inferred && !row.noted && !row.hook && !row.telemetry) row.flag = "step happened but no read of the skill was seen: the hook is not installed or did not fire, or the step ran without the skill";
     else if (row.noted && !row.inferred && !["team-test-plan", "team-summary"].includes(k.name)) row.flag = "skill started but its step is not in the call log yet";
     else if (row.hook && !row.noted && !row.inferred && !row.telemetry) row.flag = "loaded only: read but no step followed, so it was not applied";
     else row.flag = null;

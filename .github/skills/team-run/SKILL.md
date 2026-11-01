@@ -11,9 +11,6 @@ All state changes go through the CLI: `node $HOME/.copilot/team/team.mjs` (calle
 ## Input
 A ticket id, for example `PROJ-123`. The story already carries its ACs and scenarios (split from the PRD by wf-plan). Do not ask for the PRD.
 
-## First action
-Record that this skill started: `team note-skill <TICKET> team-run --agent <your agent name>`. It changes no state. If it fails, carry on.
-
 ## Steps
 1. Find the change folder: `<repo>/.team/changes/<TICKET>/` in each repo the story touches.
    - No folder yet: run the `team-explore` skill, then continue.

@@ -7,9 +7,6 @@ description: QE skill. Drafts a test plan from the story's ACs and scenarios, fl
 
 CLI: `node $HOME/.copilot/team/team.mjs` (called `team`). You write only `test-plan.md` in the change folder, and test files when asked.
 
-## First action
-Record that this skill started: `team note-skill <TICKET> team-test-plan --agent qe`. It changes no state. If it fails, carry on.
-
 ## Pass 1: draft (state explored, no test-plan.md yet)
 Runs in parallel with the proposal. Do not wait for it.
 1. Read the story: ACs and their scenarios (`S<ac>.<n>`). The scenarios are the source. Do not rewrite them.

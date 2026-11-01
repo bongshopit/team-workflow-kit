@@ -12,9 +12,6 @@ Set `TEAM_TEST_CMD` to the repo's build and test command (for example `mvn -q te
 - State is `approved` or `applying`. If not, stop.
 - `proposal.md`, `tasks.md` and `test-plan.md` exist.
 
-## First action
-Record that this skill started: `team note-skill <TICKET> team-apply --agent <your agent name>`. It changes no state. If it fails, carry on.
-
 ## Steps
 1. If the state is `approved`: `team set-status <folder> applying`. If it refuses, stop and report why.
 2. Read `proposal.md`, `tasks.md` and `test-plan.md`. The tests you write come from the plan's scenarios.

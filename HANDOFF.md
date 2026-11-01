@@ -84,3 +84,7 @@ d. `team report` across repos for a sprint, joined with the usage dashboard.
 
 ## Single source (2026-11-01)
 `kit/.github` is the only copy of agents, skills and prompts. The old `kit/copilot` folder was deleted. VS Code is opened on `kit`, so it reads `kit/.github`. The hook log field `skill_src` shows which folder each skill was read from.
+
+## note-skill removed from the skills (2026-11-01)
+The hook gives skill evidence for all seven skills (read by the right agent, joined to telemetry by tool call id), so the "First action: note-skill" step was removed from every skill. The `note-skill` command stays in team.mjs for manual use and for clients without hooks (Copilot CLI and IntelliJ are not tested yet; re-add the first action there if their hooks do not report skill reads).
+The hook must be installed (`team/hooks/install-hooks.ps1`) or the report shows "no read of the skill was seen".

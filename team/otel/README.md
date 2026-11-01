@@ -103,4 +103,4 @@ The report prints how many calls matched a terminal span. If that number is low,
 | hook | a Copilot hook saw `SKILL.md` being read. Needs the discovery hook, see `team\hooks\README.md`. |
 | telemetry | a span carried `skill_name`. Not seen so far in VS Code. |
 
-The note column flags mismatches, for example "step happened but the skill was never noted". team-test-plan's draft pass leaves no call, so it only shows as inferred after the refine pass.
+The note column flags mismatches, for example "step happened but no read of the skill was seen". team-test-plan's draft pass leaves no call, so it only shows as inferred after the refine pass.

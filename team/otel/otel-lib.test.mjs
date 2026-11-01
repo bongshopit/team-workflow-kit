@@ -206,7 +206,7 @@ test("skill evidence combines noted, inferred, hook and telemetry", () => {
     call({ cmd: "next-action", detail: "propose + test-plan" }),
     call({ cmd: "note-skill", detail: "team-explore (orchestrator)" }),
     call({ cmd: "init-change" }),
-    call({ cmd: "set-status", detail: "proposed" }), // team-propose never noted
+    call({ cmd: "set-status", detail: "proposed" }), // team-propose, no read seen
     call({ cmd: "set-ready", detail: "test_plan" }),
     call({ cmd: "note-skill", detail: "team-apply (dev)" }), // noted, but no applying call
     call({ cmd: "set-status", detail: "applying", code: 2 }), // refused: must not count as evidence
@@ -217,7 +217,7 @@ test("skill evidence combines noted, inferred, hook and telemetry", () => {
   assert.equal(rows["team-explore"].flag, null);
   assert.equal(rows["team-propose"].inferred, true);
   assert.equal(rows["team-propose"].noted, false);
-  assert.match(rows["team-propose"].flag, /never noted/);
+  assert.match(rows["team-propose"].flag, /no read of the skill/);
   assert.equal(rows["team-test-plan"].hook, true);
   assert.equal(rows["team-apply"].noted, true);
   assert.equal(rows["team-apply"].inferred, false);

@@ -10,9 +10,6 @@ CLI: `node $HOME/.copilot/team/team.mjs` (called `team`). Read-only except for `
 ## Preconditions
 `team next-action <folder> --json` says action `review` (state `review`).
 
-## First action
-Record that this skill started: `team note-skill <TICKET> team-review --agent <your agent name>`. It changes no state. If it fails, carry on.
-
 ## Keep the review cheap
 A measured review used 74 single-file reads, each one a separate model call that re-sent the whole context. To avoid that:
 - Fetch everything in one go: run `git diff --stat <base>...<branch>` and `git diff <base>...<branch>` together in one terminal command, and read the four change documents in the same turn (ask for all the reads at once).
