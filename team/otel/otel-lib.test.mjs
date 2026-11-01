@@ -379,3 +379,62 @@ test("a hook event from the folder VS Code is open on still counts when its tool
   assert.equal(j.hookEvents, 1);
   assert.equal(j.skillEvidence.find((e) => e.skill === "team-run").hook, true);
 });
+
+// ---- retro ----
+import { flowFromCalls, renderRetro, signalsFor } from "./otel-retro.mjs";
+
+test("flow: time in each state, rework rounds, gate wait and failed calls come from the call log", () => {
+  const T = 1_000_000;
+  const mk = (cmd, at, before, after, extra = {}) => call({ cmd, start_ms: T + at, end_ms: T + at + 100, state_before: before, state_after: after, code: 0, ...extra });
+  const calls = [
+    mk("init-change", 0, null, "explored"),
+    mk("set-status", 60000, "explored", "proposed", { detail: "proposed" }),
+    mk("approve", 360000, "proposed", "approved"),
+    mk("set-status", 370000, "approved", "applying"),
+    mk("set-status", 400000, "applying", "review"),
+    mk("set-status", 460000, "review", "applying"),
+    mk("validate-change", 470000, "applying", "applying", { code: 5, reason: "tasks not ticked" }),
+    mk("set-status", 480000, "applying", "review"),
+  ];
+  const f = flowFromCalls(calls);
+  assert.equal(f.reworkRounds, 1);
+  assert.equal(f.gate1WaitMs, 300000);
+  assert.equal(f.finalState, "review");
+  assert.deepEqual(f.states.map((s) => s.state), ["explored", "proposed", "approved", "applying", "review", "applying", "review"]);
+  assert.equal(f.scriptFailures.length, 1);
+  assert.equal(f.scriptFailures[0].reason, "tasks not ticked");
+});
+
+test("retro markdown has the sections, the numbers and the signals", () => {
+  const report = {
+    ticket: "PROJ-1", hookEvents: 5, coverage: { spans: 10, assignedToTicket: 8, calls: 3, matchedCalls: 3 },
+    skillEvidence: [{ skill: "team-review", hook: true, inferred: true, noted: false, telemetry: false, hookBy: ["reviewer (subagent)"] }, { skill: "team-summary", hook: false, inferred: false, noted: false, telemetry: false, hookBy: [] }],
+    perRepo: { "order-service": {
+      total: { credits: 10, llmCalls: 20, tokensIn: 1000, tokensOut: 100, toolErrors: 6, toolCalls: 30 },
+      byRole: [{ role: "reviewer (subagent)", credits: 6, llmCalls: 12, tokensIn: 600, tokensOut: 60 }, { role: "main chat", credits: 4, llmCalls: 8, tokensIn: 400, tokensOut: 40 }],
+      phases: [{ phase: "review", from: 0, to: 120000, credits: 6, llmCalls: 12, toolCalls: 20, toolErrors: 6, agents: ["reviewer (subagent)"], loops: [{ tool: "read_file", count: 4 }] }],
+      toolsByRole: [{ role: "reviewer (subagent)", tool: "read_file", count: 50 }],
+      failures: [{ role: "reviewer (subagent)", tool: "read_file", error: "Error", count: 6 }],
+    } },
+  };
+  const flow = { wallMs: 600000, states: [{ state: "review", at: 0, ms: 120000, open: true }], reworkRounds: 1, gate1WaitMs: 300000, scriptFailures: [{ cmd: "validate-change", detail: "review", code: 5, reason: "tasks not ticked" }], finalState: "review" };
+  const md = renderRetro(report, flow, { generated: "test" });
+  for (const part of ["# Retro: PROJ-1", "## Signals", "## Cost by role", "## Cost by phase", "## Flow", "## Skills", "## Failures", "## Coverage", "reviewer (subagent)", "Rework rounds: 1", "exit 5, tasks not ticked", "waiting at Gate 1"]) assert.ok(md.includes(part), part);
+  const sig = signalsFor(report, flow).join("\n");
+  assert.match(sig, /reviewer \(subagent\) used 60% of the credits/);
+  assert.match(sig, /50 read_file calls/);
+  assert.match(sig, /read_file failed 4 times in a row/);
+  assert.match(sig, /1 rework round:/);
+  assert.match(sig, /No evidence for: team-summary/);
+});
+
+test("report --md --out writes the retro file", () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "otel-home-"));
+  for (const d of ["calls", "hooks", path.join("telemetry", "spool")]) fs.mkdirSync(path.join(home, d), { recursive: true });
+  const t = Date.now() - 120000;
+  fs.writeFileSync(path.join(home, "calls", "PROJ-12.jsonl"), JSON.stringify(call({ ticket: "PROJ-12", cmd: "init-change", start_ms: t + 5000, end_ms: t + 5100, state_before: null, state_after: "explored" })) + "\n");
+  const out = path.join(home, "out", "PROJ-12-retro.md");
+  const r = spawnSync(process.execPath, [path.join(DIR, "otel-report.mjs"), "PROJ-12", "--home", home, "--md", "--out", out], { encoding: "utf8" });
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(fs.readFileSync(out, "utf8"), /# Retro: PROJ-12/);
+});

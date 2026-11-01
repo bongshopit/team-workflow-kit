@@ -387,3 +387,20 @@ test("note-skill does not mistake a workspace folder that holds repos for the ti
   assert.equal(readCalls("PROJ-610", home)[0].repo, "(unknown)");
   assert.equal(readCalls("PROJ-611", home)[0].repo, "order-service");
 });
+
+test("retro writes <TICKET>-retro.md into the change folder and changes no state", () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "team-home-"));
+  const repo = fs.mkdtempSync(path.join(os.tmpdir(), "team-repo-"));
+  fs.writeFileSync(path.join(repo, "r.md"), "# f\n");
+  ok(["init-change", repo, "PROJ-620", "--report", path.join(repo, "r.md"), "--acs", "1"], { TEAM_HOME: home });
+  const folder = path.join(repo, ".team", "changes", "PROJ-620");
+  const before = fs.readFileSync(path.join(folder, "status.json"), "utf8");
+  // a stand-in for the report script: writes the file it is asked to
+  const stub = path.join(repo, "stub-report.mjs");
+  fs.writeFileSync(stub, 'import fs from "node:fs"; const a = process.argv; fs.writeFileSync(a[a.indexOf("--out") + 1], "# Retro: " + a[2] + "\\n");\n');
+  ok(["retro", folder], { TEAM_HOME: home, TEAM_OTEL_REPORT: stub });
+  assert.equal(fs.readFileSync(path.join(folder, "PROJ-620-retro.md"), "utf8"), "# Retro: PROJ-620\n");
+  assert.equal(fs.readFileSync(path.join(folder, "status.json"), "utf8"), before);
+  assert.ok(readCalls("PROJ-620", home).some((r) => r.cmd === "retro" && r.code === 0));
+  fail(["retro", folder], 64, { TEAM_HOME: home, TEAM_OTEL_REPORT: path.join(repo, "missing.mjs") });
+});

@@ -4,6 +4,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { flowFromCalls, renderRetro } from "./otel-retro.mjs";
 import { attribute, phasesFromCalls, phaseAt, totals, findLoops, dedupe, skillEvidence, roleOf as roleName, resolveRole, findSpanByCallId } from "./otel-lib.mjs";
 
 const args = process.argv.slice(2);
@@ -98,7 +99,7 @@ const idDiag = {
   hookIdShape: shape(hookEvents.find((e) => e.tool_use_id)?.tool_use_id),
   spanIdShape: shape([...byCall.keys()][0]),
 };
-const report = { ticket, repos, skillEvidence: evidence, idDiag, hookEvents: hookEvents.length, scriptCalls: Object.fromEntries(cmdCounts), skillNotes, repoSpansNote: "agents are by role",  coverage: { ...stats, assignedToTicket: mine.length }, perRepo: {} };
+const report = { ticket, flow: flowFromCalls(calls), repos, skillEvidence: evidence, idDiag, hookEvents: hookEvents.length, scriptCalls: Object.fromEntries(cmdCounts), skillNotes, repoSpansNote: "agents are by role",  coverage: { ...stats, assignedToTicket: mine.length }, perRepo: {} };
 for (const repo of repos) {
   const repoCalls = calls.filter((c) => c.repo === repo);
   const phases = phasesFromCalls(repoCalls);
@@ -140,6 +141,12 @@ for (const repo of repos) {
   report.perRepo[repo] = { toolsByRole, failures, byRole: [...byRole.values()].map((r) => ({ ...r, credits: +r.credits.toFixed(3) })).sort((a, b) => b.credits - a.credits), phases: rows, total: { credits: +all.credits.toFixed(3), llmCalls: all.llmCalls, tokensIn: all.tin, tokensCache: all.tcache, tokensOut: all.tout, toolCalls: all.toolCalls, toolErrors: all.toolErrors }, skills: [...all.skills] };
 }
 if (asJson) { console.log(JSON.stringify(report, null, 2)); process.exit(0); }
+if (args.includes("--md")) {
+  const md = renderRetro(report, report.flow);
+  const out = flag("out", null);
+  if (out) { fs.mkdirSync(path.dirname(path.resolve(out)), { recursive: true }); fs.writeFileSync(out, md); console.log(`wrote ${out}`); } else process.stdout.write(md);
+  process.exit(0);
+}
 
 const n = (x) => x.toLocaleString("en-US");
 const mins = (a, b) => (b > a && isFinite(a) ? `${((b - a) / 60000).toFixed(1)} min` : "-");

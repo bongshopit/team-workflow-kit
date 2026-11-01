@@ -12,15 +12,17 @@ State `review`, `review.md` says `Result: pass`, and `team next-action <folder> 
 
 ## Steps
 1. Read `proposal.md`, `tasks.md`, `test-plan.md`, `review.md` and the change's commits.
-2. Write `<TICKET>-summary.md` in the change folder:
+2. Run `team retro <folder>`. It writes `<TICKET>-retro.md` (cost, flow, skills, failures) into the change folder. If it fails, carry on and say so in the summary.
+3. Write `<TICKET>-summary.md` in the change folder:
    - repo and state
    - what changed, in 3 to 5 lines, by AC
    - tasks ticked and test result
    - review result
    - merge order across repos, or `single repo, no dependencies`
+   - `Retro: <TICKET>-retro.md` (or `Retro: not generated`)
    - `Gate 2: waiting for human`
-3. Open the pull request (`gh pr create` or the team's usual way) with the summary as its description. Link the Jira ticket. If you cannot open it, print the exact command for the human.
-4. Tell the human: Gate 2 is theirs. They review and merge, then run `team set-status <folder> done`.
+4. Open the pull request (`gh pr create` or the team's usual way) with the summary as its description. Link the Jira ticket. If you cannot open it, print the exact command for the human.
+5. Tell the human: Gate 2 is theirs. They review and merge, then run `team set-status <folder> done`.
 
 ## Multi-repo
 Write one summary per repo and one ticket-level list: repo, PR link, state, merge order. Upstream repos merge first.

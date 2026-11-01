@@ -7,6 +7,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 
 const REVIEW_ROUND_LIMIT = 2; // review -> applying more than this needs a human
 const SAME_TEST_FAIL_LIMIT = 2; // the same test failing this many times blocks the change
@@ -468,6 +469,21 @@ const COMMANDS = {
     }
   },
 
+  // Writes <TICKET>-retro.md into the change folder: cost by role and phase, flow, skills, failures. Needs the otel report script next to this one
+  // (otel/otel-report.mjs, or ../otel/ in the kit layout), or TEAM_OTEL_REPORT. It changes no state.
+  retro(pos) {
+    const folder = path.resolve(need(pos[0], "change folder"));
+    load(folder);
+    const ticket = path.basename(folder);
+    const here = path.dirname(fileURLToPath(import.meta.url));
+    const candidates = process.env.TEAM_OTEL_REPORT ? [process.env.TEAM_OTEL_REPORT] : [path.join(here, "otel", "otel-report.mjs"), path.join(here, "..", "otel", "otel-report.mjs")];
+    const script = candidates.find((c) => fs.existsSync(c));
+    if (!script) throw new Fail("otel-report.mjs not found. Copy the kit's team/otel folder next to team.mjs, or set TEAM_OTEL_REPORT.", 64);
+    const out = filePath(folder, `${ticket}-retro.md`);
+    const r = spawnSync(process.execPath, [script, ticket, "--home", teamHome(), "--md", "--out", out], { encoding: "utf8" });
+    if (r.status !== 0) throw new Fail((r.stderr || r.stdout || "retro failed").trim().split("\n")[0], 1);
+    console.log(`wrote ${out}`);
+  },
   help() {
     console.log(`node team.mjs <command> ...
 
@@ -481,6 +497,7 @@ const COMMANDS = {
   next-action <folder> [--json]
   note-skill <TICKET> <skill> [--agent name]    record that a skill was started (no state change)
   calls <TICKET> [--json]                       show the recorded calls for a ticket
+  retro <folder>                                write <TICKET>-retro.md (cost, flow, skills, failures) into the change folder
 
 <folder> is <repo>/.team/changes/<TICKET>. Env: TEAM_TEST_CMD, TEAM_NOTIFY_CMD, TEAM_HOME (call log location), TEAM_CALLS=off.
 Exit codes: 2 illegal transition, 3 approval rule, 4 missing reason, 5 validation failed, 6 retry limit.`);

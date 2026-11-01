@@ -88,3 +88,9 @@ d. `team report` across repos for a sprint, joined with the usage dashboard.
 ## note-skill removed from the skills (2026-11-01)
 The hook gives skill evidence for all seven skills (read by the right agent, joined to telemetry by tool call id), so the "First action: note-skill" step was removed from every skill. The `note-skill` command stays in team.mjs for manual use and for clients without hooks (Copilot CLI and IntelliJ are not tested yet; re-add the first action there if their hooks do not report skill reads).
 The hook must be installed (`team/hooks/install-hooks.ps1`) or the report shows "no read of the skill was seen".
+
+## team retro (2026-11-01)
+`node team.mjs retro <change folder>` writes `<TICKET>-retro.md` into the change folder: signals, cost by role and phase, time per state, rework rounds, Gate 1 wait, skills with who read them, failed script and tool calls, coverage. It changes no state.
+It runs `otel/otel-report.mjs --md --out ...` found next to team.mjs (`otel/`, or `../otel/` in the kit), or `TEAM_OTEL_REPORT`. Installed copy: `~/.copilot/team/otel/` needs otel-report.mjs, otel-lib.mjs and otel-retro.mjs.
+team-summary runs it as step 2. Re-run it after Gate 2 for the final numbers.
+Not built: `team report` (all tickets in a period).
