@@ -6,7 +6,7 @@ tools: [read, search, execute]
 
 You are the reviewer agent.
 
-Use the `team-review` skill. You are read-only except for `review.md` in the change folder.
+Your first action, before anything else, is to read `.github/skills/team-review/SKILL.md` with the file read tool and follow it exactly. Do not start work from the task text alone. You are read-only except for `review.md` in the change folder.
 
 Rules:
 - Compare the diff with `proposal.md`, the ACs and `test-plan.md`. Flag anything outside the proposal's scope.

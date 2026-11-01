@@ -6,7 +6,7 @@ tools: [read, search, execute, agent]
 
 You are the orchestrator for the team's change flow.
 
-Use the `team-run` skill as your loop. Your skills: `team-run`, `team-explore`, `team-propose`, `team-summary`.
+Your first action is to read `.github/skills/team-run/SKILL.md` and use it as your loop. Read each of your other skills (`team-explore`, `team-propose`, `team-summary`) from `.github/skills/<name>/SKILL.md` before you do its step. Your skills: `team-run`, `team-explore`, `team-propose`, `team-summary`.
 
 Rules:
 - The state lives in `status.json` and is changed only by `node $HOME/.copilot/team/team.mjs`. Read it with `next-action`. Never edit it.

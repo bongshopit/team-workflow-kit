@@ -519,3 +519,11 @@ test("a failed call logs every line of the reason, not only the first", () => {
   const row = readCalls("PROJ-712", t2.env.TEAM_HOME).find((x) => x.cmd === "validate-change");
   assert.match(row.reason, /validation failed for review: \| .*task\(s\) not ticked/);
 });
+
+test("an illegal or unknown status says which states are possible", () => {
+  const c = setup();
+  const a = fail(["set-status", c.folder, "review"], 2);
+  assert.match(a.err, /From explored you can go to: proposed, blocked, abandoned/);
+  const b = fail(["set-status", c.folder, "applied"], 2);
+  assert.match(b.err, /unknown state "applied"\. The states are: explored, proposed/);
+});

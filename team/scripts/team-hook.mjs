@@ -54,6 +54,19 @@ function pathCheck(args) {
     return "missing";
   } catch { return null; }
 }
+// Extra facts about the same path, as booleans: outside the folder the session was opened on, or inside a dot folder (.team, .github ...).
+function pathFlags(args, cwd) {
+  let o = args;
+  if (typeof o === "string" && /^\s*\{/.test(o)) { try { o = JSON.parse(o); } catch { return {}; } }
+  const p = o && typeof o === "object" ? (o.filePath ?? o.path ?? o.dirPath ?? null) : null;
+  if (typeof p !== "string" || !p) return {};
+  const norm = (x) => x.replace(/\\/g, "/").replace(/\/+$/, "").toLowerCase();
+  const abs = path.isAbsolute(p) || /^[a-z]:[\\/]/i.test(p);
+  return {
+    path_outside: abs && typeof cwd === "string" && cwd ? !(norm(p) === norm(cwd) || norm(p).startsWith(norm(cwd) + "/")) : null,
+    path_dot: p.split(/[\\/]/).some((seg) => seg.startsWith(".") && seg !== "." && seg !== ".."),
+  };
+}
 function keysOf(value) {
   if (typeof value === "string" && /^\s*\{/.test(value)) { try { value = JSON.parse(value); } catch { return []; } }
   return value && typeof value === "object" && !Array.isArray(value) ? Object.keys(value) : [];
@@ -87,6 +100,7 @@ function describe(event, payload) {
     skill: findSkill(args),
     skill_src: findSkillSrc(args),
     path_check: pathCheck(args),
+    ...pathFlags(args, p.cwd),
     agent: typeof (p.agentType ?? p.agent_type ?? p.agentName) === "string" ? (p.agentType ?? p.agent_type ?? p.agentName) : null,
     has_agent_id: Boolean(p.agentId ?? p.agent_id),
     // Identifiers only. session_id and tool_use_id let the report join this event to a telemetry span; neither holds content.

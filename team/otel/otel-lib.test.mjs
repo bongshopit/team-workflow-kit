@@ -463,3 +463,38 @@ test("hook classifies the path the agent used without keeping it", () => {
   const text = JSON.stringify(runHook("postToolUse", JSON.stringify({ tool_name: "read_file", tool_input: { filePath: path.join(dir, "nope.txt") }, cwd: dir })).rows);
   assert.ok(!text.includes("nope.txt"));
 });
+
+test("hook adds whether the path is outside the session folder or in a dot folder", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "pf-"));
+  fs.mkdirSync(path.join(dir, ".team"));
+  const row = (filePath) => runHook("postToolUse", JSON.stringify({ tool_name: "read_file", tool_input: { filePath }, tool_use_id: "c", cwd: dir })).rows[0];
+  const inside = row(path.join(dir, ".team", "x.md"));
+  assert.equal(inside.path_outside, false);
+  assert.equal(inside.path_dot, true);
+  const outside = row(path.join(os.tmpdir(), "elsewhere", "y.md"));
+  assert.equal(outside.path_outside, true);
+  assert.equal(outside.path_dot, false);
+  assert.equal(row("src/a.md").path_outside, null);
+});
+
+test("failed file calls are grouped by kind of path, with failed of total", () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "otel-home-"));
+  for (const d of ["calls", "hooks", path.join("telemetry", "spool")]) fs.mkdirSync(path.join(home, d), { recursive: true });
+  const t = Date.now() - 120000;
+  fs.writeFileSync(path.join(home, "calls", "PROJ-13.jsonl"), JSON.stringify(call({ ticket: "PROJ-13", cmd: "init-change", start_ms: t + 5000, end_ms: t + 5100, state_before: null, state_after: "explored" })) + "\n");
+  const id = (n) => `call_${String(n).repeat(24)}`;
+  const spans = [
+    S({ trace: "T1", span: "root", name: "invoke_agent", kind: "agent", agent: "dev", start: t, end: t + 9000, conv: "C1" }),
+    chat({ trace: "T1", span: "llm", parent: "root", agent: "tool/runSubagent-dev", start: t + 100, end: t + 900, conv: "C1" }),
+    S({ trace: "T1", span: "a", parent: "llm", name: "execute_tool read_file", kind: "tool", tool: "read_file", callId: id(1), err: "Error", start: t + 1000, end: t + 1100, conv: "C1" }),
+    S({ trace: "T1", span: "b", parent: "llm", name: "execute_tool read_file", kind: "tool", tool: "read_file", callId: id(2), start: t + 1200, end: t + 1300, conv: "C1" }),
+    S({ trace: "T1", span: "c", parent: "llm", name: "execute_tool read_file", kind: "tool", tool: "read_file", callId: id(3), start: t + 1400, end: t + 1500, conv: "C1" }),
+    terminal({ trace: "T1", span: "term", parent: "llm", start: t + 4000, end: t + 6000, conv: "C1" }),
+  ];
+  fs.writeFileSync(path.join(home, "telemetry", "spool", "d.jsonl"), spans.map((s) => JSON.stringify(s)).join("\n") + "\n");
+  const ev = (n, extra) => JSON.stringify({ at_ms: t + 1000 + n * 100, event: "postToolUse", tool: "read_file", tool_use_id: id(n) + "__vscode-1", repo: "kit", arg_keys: [], payload_keys: [], ...extra });
+  fs.writeFileSync(path.join(home, "hooks", "events.jsonl"), [ev(1, { path_check: "ok", path_outside: true, path_dot: false }), ev(2, { path_check: "ok", path_outside: true, path_dot: false }), ev(3, { path_check: "ok", path_outside: false, path_dot: true })].join("\n") + "\n");
+  const j = JSON.parse(spawnSync(process.execPath, [path.join(DIR, "otel-report.mjs"), "PROJ-13", "--home", home, "--json"], { encoding: "utf8" }).stdout);
+  assert.equal(j.pathProblems.length, 1);
+  assert.deepEqual({ role: j.pathProblems[0].role, kind: j.pathProblems[0].kind, count: j.pathProblems[0].count, total: j.pathProblems[0].total }, { role: "dev (subagent)", kind: "ok+outside", count: 1, total: 2 });
+});

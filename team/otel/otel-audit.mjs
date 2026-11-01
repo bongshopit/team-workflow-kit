@@ -47,8 +47,8 @@ export function signalsFor(report, flow) {
   const unseen = (report.skillEvidence || []).filter((e) => !e.noted && !e.inferred && !e.hook && !e.telemetry).map((e) => e.skill);
   if (report.hookEvents === 0) out.push("No hook events were found for this ticket: the hook is not installed, or did not fire.");
   else if (report.hookEvents > 0 && unseen.length && flow.finalState && flow.finalState !== "explored") out.push(`No evidence for: ${unseen.join(", ")}.`);
-  const badPaths = (report.pathProblems || []).reduce((n, p) => n + p.count, 0);
-  if (badPaths) out.push(`${badPaths} file or folder tool call${badPaths > 1 ? "s" : ""} used a path that did not exist or was a folder (${[...new Set(report.pathProblems.map((p) => `${p.role} ${p.tool}`))].slice(0, 3).join(", ")}).`);
+  const badPaths = (report.pathProblems || []).reduce((n, p) => n + p.count, 0); // failed file/folder calls, for context
+  if (badPaths) out.push(`${badPaths} file or folder tool call${badPaths > 1 ? "s" : ""} failed (${[...new Set(report.pathProblems.map((p) => `${p.role} ${p.tool}`))].slice(0, 3).join(", ")}).`);
   const c = report.coverage || {};
   if (c.calls && c.matchedCalls < c.calls) out.push(`${c.calls - c.matchedCalls} script call(s) matched no terminal span, so some spans may be unassigned.`);
   return out;
@@ -108,14 +108,15 @@ export function renderAudit(report, flow, opts = {}) {
       L.push("");
     }
     if (paths.length) {
-      L.push("Paths that did not exist (seen by the hook):", "");
-      L.push(table(["role", "tool", "kind", "count"], paths.slice(0, 10).map((p) => [p.role, p.tool, p.kind, p.count])));
+      L.push("Failed file and folder calls by kind of path (seen by the hook):", "");
+      L.push(table(["role", "tool", "path kind", "failed", "of"], paths.slice(0, 10).map((p) => [p.role, p.tool, p.kind, p.count, p.total])));
     }
   }
 
   L.push("", "## Coverage", "");
   const c = report.coverage || {};
   L.push(`Spans in the window: ${c.spans ?? "?"}. Assigned to this ticket: ${c.assignedToTicket ?? "?"}. Calls matched to a terminal span: ${c.matchedCalls ?? "?"} of ${c.calls ?? "?"}. Hook events: ${report.hookEvents ?? 0}.`);
+  if (repos.length > 1) L.push("When one conversation works on several repos, spans are split between the repos by the time of each repo's script calls. The split is approximate; the ticket total is reliable.");
   L.push("Credits come from Copilot's telemetry (`copilot_usage_nano_aiu` divided by 1e9). Spans are tied to the ticket by the time of its team.mjs calls.");
   return L.join("\n") + "\n";
 }

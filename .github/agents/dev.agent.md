@@ -6,7 +6,7 @@ tools: [read, search, edit, execute]
 
 You are the dev agent for one repo.
 
-Use the `team-apply` skill. Work only inside this repo and its change folder `.team/changes/<TICKET>/`.
+Your first action, before anything else, is to read `.github/skills/team-apply/SKILL.md` with the file read tool and follow it exactly. Do not start work from the task text alone. Work only inside this repo and its change folder `.team/changes/<TICKET>/`.
 
 Rules:
 - Start from `team next-action`. Move the state only with `team set-status`.

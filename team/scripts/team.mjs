@@ -209,7 +209,8 @@ function validate(folder, st, mode, { skipTests = false } = {}) {
 function move(folder, st, to, { by = "script", reason = "", internalApprove = false, skipTests = false } = {}) {
   const from = st.state;
   if (!TRANSITIONS[from] && from !== "blocked") throw new Fail(`unknown state ${from}`);
-  if (!allowedFrom(st).includes(to)) throw new Fail(`illegal transition ${from} -> ${to}`, 2);
+  if (!Object.keys(TRANSITIONS).includes(to)) throw new Fail(`unknown state "${to}". The states are: ${Object.keys(TRANSITIONS).join(", ")}. Run next-action to see what to do, do not guess names`, 2);
+  if (!allowedFrom(st).includes(to)) throw new Fail(`illegal transition ${from} -> ${to}. From ${from} you can go to: ${allowedFrom(st).join(", ") || "nowhere"}. Run next-action to see what to do, do not guess names`, 2);
   if (to === "approved" && !internalApprove) throw new Fail("use the approve command to approve a proposal", 3);
 
   if (to === "proposed") {

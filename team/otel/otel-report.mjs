@@ -99,16 +99,23 @@ const idDiag = {
   hookIdShape: shape(hookEvents.find((e) => e.tool_use_id)?.tool_use_id),
   spanIdShape: shape([...byCall.keys()][0]),
 };
-// Hook events whose path did not exist or was a folder, by role (found through the tool call id).
+// Failed file and folder tool calls by the kind of path the agent used (from the hook, joined to the span by tool call id).
+// "failed of total" shows whether a kind of path is the problem or whether failures happen on good paths too.
 const pathProblems = (() => {
   const m = new Map();
   for (const e of hookEvents) {
-    if (!["missing", "wrong-home", "directory"].includes(e.path_check)) continue;
+    if (!e.path_check) continue;
     const sp = findSpanByCallId(e.tool_use_id, byCall);
-    const key = `${(sp && resolveRole(sp, byId)) || "?"}|${e.tool || "?"}|${e.path_check}`;
-    m.set(key, (m.get(key) || 0) + 1);
+    if (!sp) continue;
+    const role = resolveRole(sp, byId) || "?";
+    const kind = [e.path_check, e.path_outside ? "outside" : null, e.path_dot ? "dot-folder" : null].filter(Boolean).join("+");
+    const key = `${role}|${e.tool || "?"}|${kind}`;
+    const row = m.get(key) || { role, tool: e.tool || "?", kind, count: 0, total: 0 };
+    row.total++;
+    if (sp.err) row.count++;
+    m.set(key, row);
   }
-  return [...m].map(([k, count]) => { const [role, tool, kind] = k.split("|"); return { role, tool, kind, count }; }).sort((x, y) => y.count - x.count);
+  return [...m.values()].filter((x) => x.count > 0).sort((a, b) => b.count - a.count);
 })();
 const report = { ticket, flow: flowFromCalls(calls), pathProblems, repos, skillEvidence: evidence, idDiag, hookEvents: hookEvents.length, scriptCalls: Object.fromEntries(cmdCounts), skillNotes, repoSpansNote: "agents are by role",  coverage: { ...stats, assignedToTicket: mine.length }, perRepo: {} };
 for (const repo of repos) {
@@ -196,6 +203,6 @@ for (const [repo, r] of Object.entries(report.perRepo)) {
 }
 
 if (report.pathProblems.length) {
-  console.log("\n   path problems seen by the hook (the path did not exist, or was a folder):");
-  for (const p of report.pathProblems.slice(0, 10)) console.log(`     ${p.role.padEnd(24)} ${p.tool.padEnd(22)} ${p.kind.padEnd(11)} x${p.count}`);
+  console.log("\n   failed file/folder calls by kind of path (from the hook): failed of total");
+  for (const p of report.pathProblems.slice(0, 10)) console.log(`     ${p.role.padEnd(24)} ${p.tool.padEnd(22)} ${p.kind.padEnd(22)} ${p.count} of ${p.total}`);
 }

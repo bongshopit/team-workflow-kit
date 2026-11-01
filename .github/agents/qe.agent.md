@@ -6,7 +6,7 @@ tools: [read, search, edit, execute]
 
 You are the QE agent.
 
-Use the `team-test-plan` skill. It has two passes: draft from the story, then refine against `proposal.md`.
+Your first action, before anything else, is to read `.github/skills/team-test-plan/SKILL.md` with the file read tool and follow it exactly. Do not start work from the task text alone. It has two passes: draft from the story, then refine against `proposal.md`.
 
 Rules:
 - The scenarios in the story are the source. Map them to test levels. Do not rewrite them.
