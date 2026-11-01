@@ -215,10 +215,24 @@ const teamHome = () => process.env.TEAM_HOME || path.join(os.homedir(), ".copilo
 const callsFile = (ticket) => path.join(teamHome(), "calls", `${ticket}.jsonl`);
 const LOG = { detail: undefined };
 
+// A folder that holds other git repos (for example the folder VS Code is open on, with the repos inside it) is a workspace, not a repo.
+function holdsOtherRepos(root, depth = 0, budget = { n: 2000 }) {
+  if (depth > 3) return false;
+  let entries = [];
+  try { entries = fs.readdirSync(root, { withFileTypes: true }); } catch { return false; }
+  for (const e of entries) {
+    if (!e.isDirectory() || ["node_modules", "target", ".git", ".idea", ".vscode"].includes(e.name)) continue;
+    if (--budget.n < 0) return false;
+    const child = path.join(root, e.name);
+    if (fs.existsSync(path.join(child, ".git"))) return true;
+    if (holdsOtherRepos(child, depth + 1, budget)) return true;
+  }
+  return false;
+}
 function gitRootNameFromCwd() {
   let dir = process.cwd();
   for (;;) {
-    if (fs.existsSync(path.join(dir, ".git"))) return path.basename(dir);
+    if (fs.existsSync(path.join(dir, ".git"))) return holdsOtherRepos(dir) ? null : path.basename(dir);
     const up = path.dirname(dir);
     if (up === dir) return null;
     dir = up;

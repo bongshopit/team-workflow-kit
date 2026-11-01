@@ -372,3 +372,18 @@ test("a failed command logs the reason, so the log says why it exited non-zero",
   assert.match(row.reason, /findings report is missing/);
   assert.match(ok(["calls", "PROJ-503"], { TEAM_HOME: home }).out, /exit 5: findings report is missing/);
 });
+
+test("note-skill does not mistake a workspace folder that holds repos for the ticket's repo", () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "team-home-"));
+  const env = { ...process.env, TEAM_HOME: home, TEAM_TEST_CMD: "", TEAM_NOTIFY_CMD: "" };
+  const ws = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "team-ws-")), "kit");
+  fs.mkdirSync(path.join(ws, ".git"), { recursive: true });
+  fs.mkdirSync(path.join(ws, "repos", "order-service", ".git"), { recursive: true });
+  spawnSync(process.execPath, [SCRIPT, "note-skill", "PROJ-610", "team-run"], { encoding: "utf8", env, cwd: ws });
+  // a plain repo (no repos inside) is still recognised
+  const plain = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "team-plain-")), "order-service");
+  fs.mkdirSync(path.join(plain, ".git"), { recursive: true });
+  spawnSync(process.execPath, [SCRIPT, "note-skill", "PROJ-611", "team-run"], { encoding: "utf8", env, cwd: plain });
+  assert.equal(readCalls("PROJ-610", home)[0].repo, "(unknown)");
+  assert.equal(readCalls("PROJ-611", home)[0].repo, "order-service");
+});

@@ -18,8 +18,10 @@ if (!ticket) { console.error("usage: node otel-report.mjs <TICKET> [--home dir] 
 const callsFile = path.join(home, "calls", `${ticket}.jsonl`);
 if (!fs.existsSync(callsFile)) { console.error(`No call log for ${ticket} at ${callsFile}. Run the workflow with team.mjs first.`); process.exit(1); }
 const calls = fs.readFileSync(callsFile, "utf8").split("\n").filter(Boolean).map((l) => JSON.parse(l));
-const realRepos = [...new Set(calls.map((c) => c.repo).filter((r) => r && r !== "(unknown)"))];
-if (realRepos.length === 1) for (const c of calls) if (!c.repo || c.repo === "(unknown)") c.repo = realRepos[0];
+// A repo name guessed by note-skill (before the change folder exists) can be wrong, for example the folder VS Code is open on.
+// The repos that ran real commands (init-change, set-status ...) are the truth; when there is exactly one, every note belongs to it.
+const realRepos = [...new Set(calls.filter((c) => c.cmd !== "note-skill").map((c) => c.repo).filter((r) => r && r !== "(unknown)"))];
+if (realRepos.length === 1) for (const c of calls) if (c.cmd === "note-skill" || !c.repo || c.repo === "(unknown)") c.repo = realRepos[0];
 const t0 = Math.min(...calls.map((c) => c.start_ms)) - slackMin * 60000;
 const t1 = Math.max(...calls.map((c) => c.end_ms)) + slackMin * 60000;
 
