@@ -14,7 +14,7 @@ One Jira story at a time, per repo, from the story only. Built in-house: skills,
 - `demo-run.html` replay of the recorded run
 
 ## Install
-Full step by step guide: `docs/INSTALL.md`.
+Quick install: `.\workflow-kit-install.ps1 -Workspace <folder> -TestCmd "mvn -q test" -PatchSettings`. Full guide: `docs/INSTALL.md`.
 
 Skills call `node $HOME/.copilot/team/team.mjs`, so the script must live there.
 

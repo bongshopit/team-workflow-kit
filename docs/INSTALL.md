@@ -3,6 +3,18 @@
 Goal: run one real ticket through the workflow, with telemetry so you can see cost and which skills ran.
 Time: about 20 minutes the first time.
 
+## Quick install (one script)
+
+From the kit folder in PowerShell:
+
+    .\workflow-kit-install.ps1 -DryRun -Workspace C:\work\lego          # preview, changes nothing
+    .\workflow-kit-install.ps1 -Workspace C:\work\lego -TestCmd "mvn -q test" -PatchSettings
+    .\workflow-kit-install.ps1 -Status                                  # installed files against the kit, collector, hook, variables
+
+It does steps 1 to 8 below, then prints the check. Safe to run again after a kit update. `-Uninstall` (add `-Purge` to delete call logs and telemetry too).
+Options: `-SkipTests`, `-SkipCollector`, `-SkipHook`, `-SkipWorkspace`, `-Port`. If PowerShell blocks it: `powershell -ExecutionPolicy Bypass -File .\workflow-kit-install.ps1 ...`.
+The manual steps below stay as the reference for what the script does.
+
 ## What gets installed where
 
 | What | From the kit | To | Why |
