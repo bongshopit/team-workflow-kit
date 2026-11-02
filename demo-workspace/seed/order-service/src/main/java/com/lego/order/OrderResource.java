@@ -12,7 +12,6 @@ import jakarta.ws.rs.core.MediaType;
 /** HTTP layer. One method per service operation. Keep docs/api.md in step with it. */
 @Path("/orders")
 @Produces(MediaType.APPLICATION_JSON)
-@Consumes(MediaType.APPLICATION_JSON)
 public class OrderResource {
     private final OrderService service;
 
@@ -22,6 +21,7 @@ public class OrderResource {
     }
 
     @POST
+    @Consumes(MediaType.APPLICATION_JSON)
     public OrderView create(OrderRequest request) {
         if (request == null) throw new ApiException(400, "body is required");
         return OrderView.from(service.create(request.sku(), request.quantity()));
