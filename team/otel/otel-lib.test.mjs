@@ -498,3 +498,14 @@ test("failed file calls are grouped by kind of path, with failed of total", () =
   assert.equal(j.pathProblems.length, 1);
   assert.deepEqual({ role: j.pathProblems[0].role, kind: j.pathProblems[0].kind, count: j.pathProblems[0].count, total: j.pathProblems[0].total }, { role: "dev (subagent)", kind: "ok+outside", count: 1, total: 2 });
 });
+
+test("roleOf names Copilot's built-in execution subagent", () => {
+  assert.equal(roleOf({ agent: "executionSubagentTool" }), "execution helper (built-in)");
+});
+
+test("attribute ties a team.mjs call to an execution_subagent tool span", () => {
+  const spans = [{ span: "t1", kind: "tool", tool: "execution_subagent", start: 1000, end: 5000, trace: "x", conv: "c" }];
+  const calls = [{ ticket: "PROJ-1", repo: "r", start_ms: 2500, end_ms: 3000 }];
+  const out = attribute(spans, calls);
+  assert.equal(out.stats.matchedCalls, 1);
+});

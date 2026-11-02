@@ -92,7 +92,7 @@ const spanKeys = (s) => [s.trace && `t:${s.trace}`, s.conv && `c:${s.conv}`, s.c
 // Rule 2: spans that share a trace, conversation or chat session (a subagent links to its parent chat session) with such a span
 //         belong to the same ticket. If one conversation covers several tickets, a span goes to the nearest call in time.
 // Rule 3: spans farther than slackMs from every call in their group stay unassigned.
-export function attribute(spans, calls, { slackMs = 10 * 60 * 1000, tolMs = 2000, terminalRe = /terminal|bash|shell|powershell|cmd/i } = {}) {
+export function attribute(spans, calls, { slackMs = 10 * 60 * 1000, tolMs = 2000, terminalRe = /terminal|bash|shell|powershell|cmd|execution_subagent/i } = {}) {
   const uf = new UnionFind();
   for (const s of spans) { const k = spanKeys(s); for (let i = 1; i < k.length; i++) uf.union(k[0], k[i]); }
 
@@ -220,6 +220,7 @@ export function roleOf(s) {
   const retry = /^retry-error-tool\/runSubagent-(.+)$/.exec(a); // Copilot re-sent a subagent call after an error
   if (retry) return `${retry[1]} (subagent retry)`;
   if (a === "panel/editAgent" || a === "GitHub Copilot Chat") return s.mode ? `main [${s.mode}]` : "main chat";
+  if (a === "executionSubagentTool") return "execution helper (built-in)"; // Copilot's own subagent that runs terminal commands for the chat
   if (["title", "progressMessages"].includes(a) || a.startsWith("copilotLanguageModelWrapper")) return "helper";
   return a || null;
 }
