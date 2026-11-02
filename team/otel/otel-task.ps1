@@ -68,16 +68,22 @@ foreach ($f in "otel-collect.mjs", "otel-lib.mjs", "otel-report.mjs", "otel-audi
 }
 $script = Join-Path $Dest ($(if ($Dump) { "otel-dump.mjs" } else { "otel-collect.mjs" }))
 
-# 3. Register the task: at logon, hidden, no time limit, restart if it exits.
-$cmd = "& '$node' '$script' --port $Port"
-$action = New-ScheduledTaskAction -Execute "powershell.exe" `
-  -Argument "-NoProfile -WindowStyle Hidden -Command `"$cmd`""
+# 3. Register the task: at logon, no window, no time limit, restart if it exits.
+# A tiny launcher (wscript, window style 0) starts node with no console window, so there is nothing to close by mistake.
+$vbs = Join-Path $Dest "collector-run.vbs"
+$tpl = @'
+Set sh = CreateObject("WScript.Shell")
+rc = sh.Run("""NODE"" ""SCRIPT"" --port PORT", 0, True)
+WScript.Quit rc
+'@
+$tpl.Replace("NODE", $node).Replace("SCRIPT", $script).Replace("PORT", "$Port") | Set-Content $vbs -Encoding ASCII
+$action = New-ScheduledTaskAction -Execute "wscript.exe" -Argument "`"$vbs`""
 $trigger = New-ScheduledTaskTrigger -AtLogOn -User "$env:USERDOMAIN\$env:USERNAME"
 $settings = New-ScheduledTaskSettingsSet `
   -ExecutionTimeLimit ([TimeSpan]::Zero) `
   -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries `
   -StartWhenAvailable -MultipleInstances IgnoreNew `
-  -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1)
+  -Hidden -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1)
 $principal = New-ScheduledTaskPrincipal -UserId "$env:USERDOMAIN\$env:USERNAME" -LogonType Interactive -RunLevel Limited
 
 if (Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue) {
@@ -96,4 +102,4 @@ if (Test-Port $Port) {
 }
 Show-Status
 Write-Host ""
-Write-Host "Running $(Split-Path $script -Leaf). Installed to $Dest. Point the clients at http://127.0.0.1:$Port as in README.md."
+Write-Host "Running $(Split-Path $script -Leaf) in the background (no window). Installed to $Dest. Point the clients at http://127.0.0.1:$Port as in README.md."

@@ -270,6 +270,9 @@ Step "5. Telemetry collector (scheduled task, starts at logon)"
 if ($SkipCollector) { Note "skipped" }
 elseif ($DryRun) { Plan "run otel-task.ps1 -Port $Port" }
 else {
+  if ((Test-Port $Port) -and -not (Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue)) {
+    Warn "Port $Port is in use, probably a collector you started by hand in a terminal. Close that terminal (Ctrl+C), then run: Start-ScheduledTask $TaskName"
+  }
   try {
     & (Join-Path $Kit "team\otel\otel-task.ps1") -Port $Port | Out-Null
     Ok "task $TaskName installed"

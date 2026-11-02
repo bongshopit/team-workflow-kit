@@ -66,7 +66,7 @@ Optional shortcut for your shell session (the skills do not need it):
     .\otel-task.ps1 -Status
     Invoke-RestMethod http://127.0.0.1:4318/health
 
-It installs a Windows scheduled task that starts the collector at logon and starts it now.
+It installs a Windows scheduled task that starts the collector at logon and starts it now. It runs in the background with no window (a small `collector-run.vbs` launcher), so there is no terminal to close by mistake. Never start `otel-collect.mjs` by hand in a terminal; if you did, press Ctrl+C there and run `Start-ScheduledTask TeamOtelCollector`. Stop it with `Stop-ScheduledTask TeamOtelCollector`.
 If PowerShell blocks the script: `powershell -ExecutionPolicy Bypass -File .\otel-task.ps1`.
 If port 4318 is taken, use `-Port 4319` and use the same port in step 4.
 The collector keeps compact span records only (no prompts, no code) and deletes files older than 30 days.
