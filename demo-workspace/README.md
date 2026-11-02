@@ -25,13 +25,4 @@ Start with PROJ-101. Multi-repo stories (PROJ-103, PROJ-104) are run once per re
     node setup.mjs --reset
 
 ## Verification
-The baseline tests were run here with a stand-in for JUnit (Maven Central is not reachable from my sandbox): 6, 6 and 4 tests pass. I have not run `mvn test` itself, so the first `mvn -q test` on your machine is the real check. If the pom needs a different Java version, change `maven.compiler.release`.
-
-## Try the services by hand (after a ticket is implemented)
-    cd demo-workspace
-    .\services.ps1 start            # add -Stub to run order-service without inventory-service
-    .\services.ps1 status
-    .\smoke.ps1                     # or call the routes yourself, see docs\api.md in each repo
-    .\services.ps1 stop
-Code changes are picked up live while a service runs (Quarkus dev mode). Tests: `mvn -q test` in each repo.
-Before PROJ-103, inventory-service has no reserve or release route, so creating an order fails against it. Use `-Stub` for PROJ-101 and PROJ-105, and the real pair after PROJ-103.
+Not compiled or run by me: Maven Central is not reachable from my sandbox. The first `mvn -q test` in each repo on your machine is the real check (it downloads Quarkus). Baseline unit tests: 6 (order), 6 (inventory... see the test folders), 4 (notification), plus one HTTP test class per repo.

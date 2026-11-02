@@ -23,7 +23,7 @@ Call POST "$inv/products" @{ sku = "SKU-1"; name = "Brick 2x4"; available = 10 }
 Call GET  "$inv/products/SKU-1" | Out-Null
 Call GET  "$inv/products/NOPE" | Out-Null
 
-Write-Host "== orders (reserve and release need inventory-service reserve/release, added by PROJ-103; or start order-service with -Stub)"
+Write-Host "== orders (order-service reads stock from inventory-service; the SKU above must exist)"
 $o = Call POST "$ord/orders" @{ sku = "SKU-1"; quantity = 2 }
 if ($o) {
   Call GET  "$ord/orders/$($o.id)" | Out-Null
