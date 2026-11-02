@@ -1,0 +1,541 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Team workflow overview</title>
+<style>
+:root{
+  --bg:#0f1613; --surface:#162019; --surface2:#1b2822; --line:#2c3a34; --fg:#e5ece8; --muted:#94a49d;
+  --accent:#4cc2a8; --good:#66d08a; --warn:#e8b25a; --bad:#e07a6a; --blue:#6fa8e8;
+  --sans:"Helvetica Neue",Helvetica,Arial,sans-serif; --mono:Menlo,Consolas,"DejaVu Sans Mono",monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:var(--bg);color:var(--fg);font-family:var(--sans);overflow:hidden}
+#viewport{position:fixed;left:0;top:0;right:0;bottom:56px;overflow:hidden}
+#stage{position:absolute;left:0;top:0;width:1920px;height:1080px;transform-origin:0 0;background:var(--bg);overflow:hidden}
+.scene{position:absolute;inset:0;opacity:0;pointer-events:none}
+.scene .pad{position:absolute;inset:0;padding:70px 90px}
+.kicker{font-family:var(--mono);font-size:26px;color:var(--accent);letter-spacing:.08em;text-transform:uppercase}
+h1{font-size:104px;line-height:1.04;font-weight:700;letter-spacing:-.02em}
+h2{font-size:64px;line-height:1.1;font-weight:700;letter-spacing:-.01em;margin-top:14px}
+.lead{font-size:36px;line-height:1.35;color:var(--muted);max-width:1500px}
+.mono{font-family:var(--mono)}
+.muted{color:var(--muted)}
+.accent{color:var(--accent)}
+.good{color:var(--good)} .warn{color:var(--warn)} .bad{color:var(--bad)}
+.a{opacity:0}
+.card{background:var(--surface);border:2px solid var(--line);border-radius:20px;padding:30px 34px}
+.card h3{font-size:40px;margin-bottom:12px}
+.card p,.card li{font-size:30px;line-height:1.4;color:var(--muted)}
+.card ul{list-style:none}
+.card li{padding:4px 0}
+.chip{display:inline-block;font-family:var(--mono);font-size:25px;padding:6px 16px;border:2px solid var(--line);border-radius:999px;color:var(--fg);background:var(--surface2);margin:6px 8px 0 0}
+.chip.acc{border-color:var(--accent);color:var(--accent)}
+.row{display:flex;gap:30px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:30px}
+.grid2{display:grid;grid-template-columns:repeat(2,1fr);gap:30px}
+.abs{position:absolute}
+.node{position:absolute;width:230px;height:120px;border:3px solid var(--line);border-radius:18px;background:var(--surface);display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:34px;font-weight:700;transition:none}
+.node small{font-size:22px;font-weight:400;color:var(--muted);margin-top:6px;font-family:var(--mono)}
+.node.on{border-color:var(--accent);background:#1a2e27;box-shadow:0 0 0 6px rgba(76,194,168,.18)}
+.node.done{border-color:var(--good)}
+.node.done::after{content:"\2713";position:absolute;top:-16px;right:-12px;background:var(--good);color:#0f1613;width:36px;height:36px;border-radius:50%;font-size:24px;display:flex;align-items:center;justify-content:center}
+.gate{position:absolute;width:72px;height:72px;transform:rotate(45deg);border:3px solid var(--warn);background:#2a2415;border-radius:10px}
+.gate+.gl{position:absolute;width:200px;text-align:center;font-size:24px;color:var(--warn);font-family:var(--mono);line-height:1.2}
+.token{position:absolute;left:0;top:0;width:34px;height:34px;margin:-17px 0 0 -17px;border-radius:50%;background:var(--accent);box-shadow:0 0 24px rgba(76,194,168,.8)}
+.file{font-family:var(--mono);font-size:28px;padding:9px 0;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:20px}
+.file span:last-child{color:var(--muted);font-size:23px}
+.note{position:absolute;left:90px;right:90px;bottom:70px;font-size:36px;color:var(--fg);text-align:left;min-height:50px}
+.bar{height:44px;border-radius:8px;width:0}
+.legend{font-size:26px;color:var(--muted)}
+.sub{font-size:26px;color:var(--muted);font-family:var(--mono)}
+.big{font-size:84px;font-weight:700;letter-spacing:-.02em}
+.tag{font-family:var(--mono);font-size:24px;padding:4px 14px;border-radius:8px;display:inline-block}
+.tag.g{background:#17301f;color:var(--good)} .tag.w{background:#33290f;color:var(--warn)} .tag.b{background:#16283d;color:var(--blue)}
+svg{position:absolute;left:0;top:0;overflow:visible;pointer-events:none}
+/* controls */
+#bar{position:fixed;left:0;right:0;bottom:0;height:56px;background:#0b110e;border-top:1px solid var(--line);display:flex;align-items:center;gap:12px;padding:0 16px;font-family:var(--sans);font-size:15px;color:var(--muted);user-select:none}
+#bar button{background:var(--surface2);color:var(--fg);border:1px solid var(--line);border-radius:8px;height:34px;min-width:38px;padding:0 12px;font-size:15px;cursor:pointer}
+#bar button:hover{border-color:var(--accent)}
+#bar button.on{border-color:var(--accent);color:var(--accent)}
+#track{position:relative;flex:1;height:34px;cursor:pointer}
+#track .rail{position:absolute;left:0;right:0;top:15px;height:4px;background:var(--line);border-radius:2px}
+#track .fill{position:absolute;left:0;top:15px;height:4px;background:var(--accent);border-radius:2px;width:0}
+#track .tick{position:absolute;top:9px;width:2px;height:16px;background:#4a5b54}
+#label{min-width:230px;color:var(--fg)}
+#time{min-width:92px;text-align:right;font-family:var(--mono)}
+#hint{position:fixed;right:20px;bottom:70px;font-size:16px;color:var(--fg);background:rgba(11,17,14,.9);border:1px solid var(--accent);border-radius:10px;padding:8px 14px;opacity:0;transition:opacity .25s}
+</style>
+</head>
+<body>
+<div id="viewport"><div id="stage">
+
+<!-- 1. Title -->
+<section class="scene" id="s1" data-dur="8" data-title="Overview">
+  <div class="pad">
+    <div class="kicker a" data-at=".2">Team workflow, design overview</div>
+    <h1 class="a" data-at=".5" data-fx="up" style="margin-top:46px">Ticket in.<br>Reviewed change out.</h1>
+    <p class="lead a" data-at="1.6" data-fx="up" style="margin-top:44px">An in-house, AI-native delivery workflow for GitHub Copilot.<br>One Jira story at a time, per repo, from the story only.</p>
+    <div style="margin-top:56px">
+      <span class="chip acc a" data-at="3" data-fx="up">skills</span>
+      <span class="chip acc a" data-at="3.3" data-fx="up">agents</span>
+      <span class="chip acc a" data-at="3.6" data-fx="up">one Node script</span>
+      <span class="chip a" data-at="4.4" data-fx="up">no third-party workflow tools</span>
+    </div>
+  </div>
+</section>
+
+<!-- 2. Principles -->
+<section class="scene" id="s2" data-dur="12" data-title="Three ideas">
+  <div class="pad">
+    <div class="kicker a" data-at=".1">The design in three ideas</div>
+    <h2 class="a" data-at=".3" data-fx="up">Who owns what</h2>
+    <div class="grid3" style="margin-top:56px">
+      <div class="card a" data-at="1.2" data-fx="up" style="height:480px">
+        <div class="tag b" style="margin-bottom:18px">state</div>
+        <h3>A script owns the state</h3>
+        <ul>
+          <li class="a" data-at="2.2" data-fx="left"><span class="mono accent">team.mjs</span> is the only writer of <span class="mono">status.json</span></li>
+          <li class="a" data-at="3" data-fx="left">Legal transitions only, with exit codes</li>
+          <li class="a" data-at="3.8" data-fx="left">Every call is logged with time, states and reason</li>
+        </ul>
+      </div>
+      <div class="card a" data-at="4.6" data-fx="up" style="height:480px">
+        <div class="tag g" style="margin-bottom:18px">work</div>
+        <h3>Agents do the work</h3>
+        <ul>
+          <li class="a" data-at="5.6" data-fx="left">Orchestrator routes, from <span class="mono">next-action</span></li>
+          <li class="a" data-at="6.4" data-fx="left">QE designs tests, dev implements</li>
+          <li class="a" data-at="7.2" data-fx="left">Reviewer checks the diff against the proposal</li>
+        </ul>
+      </div>
+      <div class="card a" data-at="8" data-fx="up" style="height:480px">
+        <div class="tag w" style="margin-bottom:18px">decide</div>
+        <h3>Humans own two gates</h3>
+        <ul>
+          <li class="a" data-at="9" data-fx="left"><b class="warn">Gate 1</b> approve the approach and the test plan</li>
+          <li class="a" data-at="9.8" data-fx="left"><b class="warn">Gate 2</b> review the PR and merge</li>
+        </ul>
+      </div>
+    </div>
+    <p class="lead a" data-at="10.6" data-fx="up" style="margin-top:44px;font-size:34px">The change contract lives in each repo and is committed with the PR.</p>
+  </div>
+</section>
+
+<!-- 3. Cast -->
+<section class="scene" id="s3" data-dur="12" data-title="The cast">
+  <div class="pad">
+    <div class="kicker a" data-at=".1">The cast</div>
+    <h2 class="a" data-at=".3" data-fx="up">Six actors, each with one job</h2>
+    <div class="grid3" style="margin-top:46px;gap:28px">
+      <div class="card a" data-at="1" data-fx="up" style="height:330px"><h3>Human</h3><p>Approves at Gate 1, merges at Gate 2. Starts a run with <span class="mono accent">/run PROJ-123</span>.</p></div>
+      <div class="card a" data-at="2.2" data-fx="up" style="height:330px"><h3>Orchestrator</h3><p>Asks the script what is next and delegates. Never edits code.</p><div><span class="chip">team-run</span><span class="chip">team-explore</span><span class="chip">team-propose</span><span class="chip">team-summary</span></div></div>
+      <div class="card a" data-at="3.4" data-fx="up" style="height:330px"><h3>QE agent</h3><p>Turns the story's scenarios into a test plan.</p><div><span class="chip">team-test-plan</span></div></div>
+      <div class="card a" data-at="4.6" data-fx="up" style="height:330px"><h3>Dev agent</h3><p>Implements task by task, tests green, one commit per task.</p><div><span class="chip">team-apply</span></div></div>
+      <div class="card a" data-at="5.8" data-fx="up" style="height:330px"><h3>Reviewer agent</h3><p>Read-only. Compares the diff with the proposal and the ACs.</p><div><span class="chip">team-review</span></div></div>
+      <div class="card a" data-at="7" data-fx="up" style="height:330px;border-color:var(--accent)"><h3 class="accent">team.mjs</h3><p>Deterministic. No model, no dependencies.</p><div><span class="chip acc">next-action</span><span class="chip acc">set-status</span><span class="chip acc">approve</span><span class="chip acc">audit</span></div></div>
+    </div>
+    <p class="lead a" data-at="9.2" data-fx="up" style="margin-top:36px;font-size:34px">Agents run as subagents. The orchestrator hands each one the exact change folder.</p>
+  </div>
+</section>
+
+<!-- 4. Flow -->
+<section class="scene" id="s4" data-dur="30" data-title="The flow">
+  <div class="pad">
+    <div class="kicker a" data-at=".1">One change, one repo</div>
+    <h2 class="a" data-at=".3" data-fx="up" style="font-size:54px">From explored to done</h2>
+  </div>
+  <svg width="1920" height="1080">
+    <line x1="320" y1="270" x2="392" y2="270" stroke="#2c3a34" stroke-width="4"/>
+    <line x1="622" y1="270" x2="694" y2="270" stroke="#2c3a34" stroke-width="4"/>
+    <line x1="924" y1="270" x2="996" y2="270" stroke="#2c3a34" stroke-width="4"/>
+    <line x1="1226" y1="270" x2="1298" y2="270" stroke="#2c3a34" stroke-width="4"/>
+    <line x1="1528" y1="270" x2="1600" y2="270" stroke="#2c3a34" stroke-width="4"/>
+    <path class="a" data-at="18.5" data-fx="draw" data-d="1.2" d="M 1413 205 C 1413 135, 1111 135, 1111 205" fill="none" stroke="#e8b25a" stroke-width="4" stroke-dasharray="14 10"/>
+  </svg>
+  <div class="abs a" data-at="19.2" style="left:900px;top:96px;width:740px;text-align:center;font-size:24px;color:var(--warn);font-family:var(--mono)">fail: back to applying, max 2 rounds</div>
+
+  <div class="node a" data-at=".6" data-on="1.6" data-off="4.6" data-done="4.6" style="left:90px;top:210px">explored<small>explore</small></div>
+  <div class="node a" data-at=".7" data-on="4.6" data-off="9.6" data-done="9.6" style="left:392px;top:210px">proposed<small>propose ‖ plan</small></div>
+  <div class="node a" data-at=".8" data-on="11.6" data-off="12.8" data-done="12.8" style="left:694px;top:210px">approved<small>Gate 1</small></div>
+  <div class="node a" data-at=".9" data-on="12.8" data-off="17.4" data-done="17.4" style="left:996px;top:210px">applying<small>dev</small></div>
+  <div class="node a" data-at="1" data-on="17.4" data-off="22.4" data-done="22.4" style="left:1298px;top:210px">review<small>reviewer</small></div>
+  <div class="node a" data-at="1.1" data-on="26.4" data-done="28.4" style="left:1600px;top:210px">done<small>Gate 2</small></div>
+
+  <div class="gate a" data-at="1.2" style="left:622px;top:234px"></div>
+  <div class="gl a" data-at="1.2" style="left:558px;top:324px">Gate 1<br>approve</div>
+  <div class="gate a" data-at="1.3" style="left:1528px;top:234px"></div>
+  <div class="gl a" data-at="1.3" style="left:1464px;top:324px">Gate 2<br>merge</div>
+
+  <!-- change folder -->
+  <div class="card a" data-at="1.4" style="position:absolute;left:90px;top:410px;width:880px;height:520px;padding:22px 30px">
+    <div class="mono accent" style="font-size:26px;margin-bottom:10px">repo/.team/changes/PROJ-123/</div>
+    <div class="file a" data-at="3.2" data-fx="left"><span>explore-report.md</span><span>orchestrator</span></div>
+    <div class="file a" data-at="5.6" data-fx="left"><span>proposal.md  tasks.md</span><span>orchestrator</span></div>
+    <div class="file a" data-at="6.4" data-fx="left"><span>test-plan.md</span><span>qe, in parallel</span></div>
+    <div class="file a" data-at="11" data-fx="left"><span>status.json  approved by lead</span><span>team.mjs</span></div>
+    <div class="file a" data-at="15.6" data-fx="left"><span>tasks.md  all ticked, tests green</span><span>dev</span></div>
+    <div class="file a" data-at="20.6" data-fx="left"><span>review.md  Result: pass</span><span>reviewer</span></div>
+    <div class="file a" data-at="24.2" data-fx="left"><span>PROJ-123-summary.md  PROJ-123-audit.md</span><span>orchestrator</span></div>
+  </div>
+  <!-- who is working -->
+  <div class="card a" data-at="1.4" style="position:absolute;left:1010px;top:410px;width:820px;height:520px;padding:30px 36px">
+    <div class="sub">now</div>
+    <div class="a" data-at="1.8" data-out="4.4" style="position:absolute;left:36px;top:70px;right:36px"><div style="font-size:42px;font-weight:700">Orchestrator explores the repo</div><p class="muted" style="font-size:30px;margin-top:12px">Finds the code the story touches. <span class="mono accent">init-change</span> creates the change folder.</p></div>
+    <div class="a" data-at="4.8" data-out="9.4" style="position:absolute;left:36px;top:70px;right:36px"><div style="font-size:42px;font-weight:700">Proposal and test plan, in parallel</div><p class="muted" style="font-size:30px;margin-top:12px">The orchestrator writes <span class="mono">proposal.md</span> and <span class="mono">tasks.md</span> while the QE subagent drafts <span class="mono">test-plan.md</span>. <span class="mono accent">set-ready</span> refuses a plan with a scenario that has no target.</p></div>
+    <div class="a" data-at="9.8" data-out="12.6" style="position:absolute;left:36px;top:70px;right:36px"><div style="font-size:42px;font-weight:700" class="warn">Gate 1: a human decides</div><p class="muted" style="font-size:30px;margin-top:12px">Reads the proposal and the test plan, then runs <span class="mono accent">team approve PROJ-123 lead</span>. Nobody else can move the change on.</p></div>
+    <div class="a" data-at="13" data-out="17.2" style="position:absolute;left:36px;top:70px;right:36px"><div style="font-size:42px;font-weight:700">Dev implements task by task</div><p class="muted" style="font-size:30px;margin-top:12px">The orchestrator runs <span class="mono accent">set-status applying</span> first; the script checks approval, files and upstream repos. Then the dev: code, test, tick, commit.</p></div>
+    <div class="a" data-at="17.6" data-out="22.2" style="position:absolute;left:36px;top:70px;right:36px"><div style="font-size:42px;font-weight:700">Reviewer checks the diff</div><p class="muted" style="font-size:30px;margin-top:12px">Every proposal point implemented, nothing out of scope, each AC covered by a test, tests pass. An open finding sends the change back.</p></div>
+    <div class="a" data-at="22.6" data-out="26.2" style="position:absolute;left:36px;top:70px;right:36px"><div style="font-size:42px;font-weight:700">Summary, audit and pull request</div><p class="muted" style="font-size:30px;margin-top:12px">Summary by AC, merge order across repos, the audit of cost and flow, and a PR with the ticket linked.</p></div>
+    <div class="a" data-at="26.6" style="position:absolute;left:36px;top:70px;right:36px"><div style="font-size:42px;font-weight:700" class="warn">Gate 2: a human merges</div><p class="muted" style="font-size:30px;margin-top:12px">Reviews the PR, merges, then runs <span class="mono accent">team set-status done</span>.</p></div>
+  </div>
+  <div class="token a" data-at="1.6" data-d="26" data-move="205,192;507,192;809,192;1111,192;1413,192;1715,192" data-segs="1.6,4.6,11.6,12.8,17.4,26.4" style="z-index:5"></div>
+</section>
+
+<!-- 5. Multi-repo -->
+<section class="scene" id="s5" data-dur="16" data-title="Several repos">
+  <div class="pad">
+    <div class="kicker a" data-at=".1">A ticket that spans repos</div>
+    <h2 class="a" data-at=".3" data-fx="up" style="font-size:54px">PROJ-103: reserve stock when an order is placed</h2>
+  </div>
+  <div class="card a" data-at="1.2" data-fx="up" style="position:absolute;left:90px;top:250px;width:820px;height:300px;padding-top:24px">
+    <h3>inventory-service</h3><p>Reserve and release stock.</p>
+    <div style="margin-top:20px" class="a" data-at="3.2"><span class="tag g">explored</span> <span class="tag g">proposed</span> <span class="tag g">approved</span> <span class="tag g">applying</span> <span class="tag g">review</span></div>
+  </div>
+  <div class="card a" data-at="2" data-fx="up" style="position:absolute;left:1010px;top:250px;width:820px;height:300px">
+    <h3>order-service</h3><p>Create an order reserves stock. Cancel releases it.</p>
+    <div style="margin-top:20px" class="a" data-at="3.4"><span class="tag g">explored</span> <span class="tag g">proposed</span> <span class="tag g">approved</span> <span class="tag w a" data-at="6.2" data-out="10.8">wait-upstream</span><span class="tag g a" data-at="11.2">applying</span></div>
+  </div>
+  <svg width="1920" height="1080"><path class="a" data-at="4" data-fx="draw" data-d="1.2" d="M 1010 385 L 910 385" fill="none" stroke="#e8b25a" stroke-width="5"/><polygon class="a" data-at="5" points="918,371 900,385 918,399" fill="#e8b25a"/></svg>
+  <div class="abs a" data-at="4.4" style="left:910px;top:420px;width:100px;text-align:center;font-size:22px;color:var(--warn);font-family:var(--mono);line-height:1.1">depends on</div>
+  <div class="card a" data-at="7" data-fx="up" style="position:absolute;left:90px;top:590px;width:820px;height:320px">
+    <div class="sub">the script enforces it</div>
+    <ul style="margin-top:10px">
+      <li class="a" data-at="7.8" data-fx="left" style="font-size:25px"><span class="mono accent">--depends-on inventory-service</span> comes from the story</li>
+      <li class="a" data-at="8.8" data-fx="left" style="font-size:25px"><span class="mono">next-action</span> returns <span class="mono warn">wait-upstream</span> until review or done</li>
+      <li class="a" data-at="9.8" data-fx="left" style="font-size:25px"><span class="mono">set-status applying</span> refuses with the reason</li>
+    </ul>
+  </div>
+  <div class="card a" data-at="11.4" data-fx="up" style="position:absolute;left:1010px;top:590px;width:820px;height:320px;font-family:var(--mono)">
+    <div class="sub">$ team ticket PROJ-103</div>
+    <div style="font-size:25px;line-height:1.6;margin-top:10px">
+      <div class="a" data-at="12.2">merge order <span class="accent">inventory -&gt; order</span></div>
+      <div class="a" data-at="12.9" class="muted">inventory-service  review</div>
+      <div class="a" data-at="13.4">order-service      review  <span class="muted">needs inventory</span></div>
+    </div>
+  </div>
+  <div class="note a" data-at="14" data-fx="up" style="font-size:32px">One developer works the ticket across repos cloned on one machine. A registry under <span class="mono">~/.copilot/team/tickets/</span> finds each repo's change folder.</div>
+</section>
+
+<!-- 6. Observability -->
+<section class="scene" id="s6" data-dur="16" data-title="Seeing the run">
+  <div class="pad">
+    <div class="kicker a" data-at=".1">Observability</div>
+    <h2 class="a" data-at=".3" data-fx="up">Three signals, one audit per ticket</h2>
+  </div>
+  <div class="card a" data-at="1.2" data-fx="up" style="position:absolute;left:90px;top:250px;width:540px;height:340px"><div class="tag b">call log</div><h3 style="margin-top:14px">What the script saw</h3><p>Every team.mjs call: time, states before and after, exit code, the reason it failed.</p></div>
+  <div class="card a" data-at="2.4" data-fx="up" style="position:absolute;left:690px;top:250px;width:540px;height:340px"><div class="tag g">telemetry</div><h3 style="margin-top:14px">What Copilot reported</h3><p>OTLP spans: credits per LLM call, tokens, tool calls and errors, which agent.</p></div>
+  <div class="card a" data-at="3.6" data-fx="up" style="position:absolute;left:1290px;top:250px;width:540px;height:340px"><div class="tag w">hook</div><h3 style="margin-top:14px">What was read</h3><p>Which skill file each agent opened, by tool call id. No file contents.</p></div>
+  <svg width="1920" height="1080">
+    <path class="a" data-at="4.8" data-fx="draw" data-d=".9" d="M 360 600 L 360 660 L 960 660 L 960 700" fill="none" stroke="#4cc2a8" stroke-width="4"/>
+    <path class="a" data-at="5" data-fx="draw" data-d=".9" d="M 960 600 L 960 700" fill="none" stroke="#4cc2a8" stroke-width="4"/>
+    <path class="a" data-at="5.2" data-fx="draw" data-d=".9" d="M 1560 600 L 1560 660 L 960 660 L 960 700" fill="none" stroke="#4cc2a8" stroke-width="4"/>
+  </svg>
+  <div class="card a" data-at="6" data-fx="up" style="position:absolute;left:90px;top:705px;width:1740px;height:290px;border-color:var(--accent);padding:24px 34px">
+    <div class="row" style="justify-content:space-between"><h3 class="accent" style="font-size:38px">team audit PROJ-123</h3><span class="sub">joined by ticket time window and tool call id</span></div>
+    <div class="grid3" style="margin-top:6px;gap:24px">
+      <div class="a" data-at="7" data-fx="up"><div class="sub">cost</div><div style="font-size:30px;margin-top:6px">by role and by phase, in credits</div></div>
+      <div class="a" data-at="8" data-fx="up"><div class="sub">flow</div><div style="font-size:30px;margin-top:6px">time per state, rework rounds, Gate 1 wait</div></div>
+      <div class="a" data-at="9" data-fx="up"><div class="sub">evidence</div><div style="font-size:30px;margin-top:6px">skills read and by whom, failures, signals</div></div>
+    </div>
+  </div>
+  <div class="note a" data-at="11.4" data-fx="up" style="font-size:30px;bottom:16px"><span class="muted">VS Code today. Copilot CLI and IntelliJ come later.</span></div>
+</section>
+
+<!-- 7. Results -->
+<section class="scene" id="s7" data-dur="14" data-title="What it showed">
+  <div class="pad">
+    <div class="kicker a" data-at=".1">First real runs, PROJ-101</div>
+    <h2 class="a" data-at=".3" data-fx="up">The audit found the cost, and the fix worked</h2>
+  </div>
+  <div class="card a" data-at="1.2" data-fx="up" style="position:absolute;left:90px;top:270px;width:1050px;height:560px">
+    <div class="sub">credits for one ticket</div>
+    <div style="margin-top:34px">
+      <div class="row" style="align-items:center"><div style="width:260px;font-size:30px">first full run</div><div style="flex:1"><div class="bar a" data-at="2" data-fx="w" data-w="100" data-d="1.4" style="background:var(--bad)"></div></div><div class="big mono" style="font-size:56px;width:150px;text-align:right"><span data-count="21.2" data-dec="1" data-at="2" data-d="1.4">0</span></div></div>
+      <div class="row" style="align-items:center;margin-top:30px"><div style="width:260px;font-size:30px">after the fixes</div><div style="flex:1"><div class="bar a" data-at="4.4" data-fx="w" data-w="36" data-d="1.2" style="background:var(--good)"></div></div><div class="big mono" style="font-size:56px;width:150px;text-align:right"><span data-count="7.6" data-dec="1" data-at="4.4" data-d="1.2">0</span></div></div>
+    </div>
+    <div class="sub" style="margin-top:50px">reviewer alone</div>
+    <div style="margin-top:20px">
+      <div class="row" style="align-items:center"><div style="width:260px;font-size:30px">before</div><div style="flex:1"><div class="bar a" data-at="6.4" data-fx="w" data-w="39" data-d="1" style="background:var(--bad)"></div></div><div class="big mono" style="font-size:56px;width:150px;text-align:right"><span data-count="8.2" data-dec="1" data-at="6.4" data-d="1">0</span></div></div>
+      <div class="row" style="align-items:center;margin-top:30px"><div style="width:260px;font-size:30px">after</div><div style="flex:1"><div class="bar a" data-at="7.6" data-fx="w" data-w="8" data-d="1" style="background:var(--good)"></div></div><div class="big mono" style="font-size:56px;width:150px;text-align:right"><span data-count="1.6" data-dec="1" data-at="7.6" data-d="1">0</span></div></div>
+    </div>
+  </div>
+  <div class="card a" data-at="8.6" data-fx="up" style="position:absolute;left:1200px;top:270px;width:630px;height:560px">
+    <div class="sub">why</div>
+    <ul style="margin-top:12px">
+      <li class="a" data-at="9.2" data-fx="left" style="font-size:30px">The reviewer made <b class="bad">74</b> single-file reads, one model call each</li>
+      <li class="a" data-at="10.2" data-fx="left" style="font-size:30px">A rule to read the diff first cut it to <b class="good">15</b></li>
+      <li class="a" data-at="11.2" data-fx="left" style="font-size:30px">Failed tool calls went from <b class="bad">13</b> to <b class="good">1</b></li>
+    </ul>
+  </div>
+  <div class="note a" data-at="12.4" data-fx="up" style="font-size:28px"><span class="muted">One run each, so the numbers are indicative. A two-repo ticket (PROJ-103) cost about 22 credits.</span></div>
+</section>
+
+<!-- 8. Improvement loop -->
+<section class="scene" id="s8" data-dur="22" data-title="Getting better">
+  <div class="pad">
+    <div class="kicker a" data-at=".1">Self-improvement, two speeds</div>
+    <h2 class="a" data-at=".3" data-fx="up" style="font-size:54px">Quick fixes on your machine, shared decisions at the retro</h2>
+  </div>
+  <div class="card a" data-at="1" data-fx="up" style="position:absolute;left:90px;top:250px;width:1740px;height:300px;padding:22px 30px">
+    <div class="sub">per ticket, on the developer's machine</div>
+    <div class="row" style="margin-top:22px;gap:18px;align-items:stretch">
+      <div class="card a" data-at="1.8" data-fx="up" style="flex:1;padding:18px 20px"><h3 style="font-size:32px">1 Ticket done</h3><p style="font-size:25px">team audit writes cost, flow, skills, signals</p></div>
+      <div class="card a" data-at="3" data-fx="up" style="flex:1;padding:18px 20px"><h3 style="font-size:32px">2 Signals?</h3><p style="font-size:25px">No signal, no improvement run</p></div>
+      <div class="card a" data-at="4.2" data-fx="up" style="flex:1;padding:18px 20px"><h3 style="font-size:32px">3 /improve</h3><p style="font-size:25px">New chat. One small change to a skill or agent</p></div>
+      <div class="card a" data-at="5.4" data-fx="up" style="flex:1;padding:18px 20px"><h3 style="font-size:32px">4 Local trial</h3><p style="font-size:25px">A commit on local/&lt;dev&gt;, noted in the ledger</p></div>
+      <div class="card a" data-at="6.6" data-fx="up" style="flex:1;padding:18px 20px"><h3 style="font-size:32px">5 Next tickets</h3><p style="font-size:25px">Held for 2 to 3 tickets? Cost and quality both</p></div>
+    </div>
+  </div>
+  <div class="card a" data-at="8.6" data-fx="up" style="position:absolute;left:90px;top:580px;width:1740px;height:250px;padding:22px 30px;border-color:var(--warn)">
+    <div class="sub warn">per sprint, the team</div>
+    <div class="row" style="margin-top:20px;gap:18px;align-items:stretch">
+      <div class="card a" data-at="9.4" data-fx="up" style="flex:1;padding:14px 20px"><h3 style="font-size:30px">Ledger</h3><p style="font-size:24px">tickets, outliers, every trial</p></div>
+      <div class="card a" data-at="10.6" data-fx="up" style="flex:1;padding:14px 20px"><h3 style="font-size:30px">Human retro</h3><p style="font-size:24px">the team adds its own notes</p></div>
+      <div class="card a" data-at="11.8" data-fx="up" style="flex:1;padding:14px 20px"><h3 style="font-size:30px">Merge</h3><p style="font-size:24px">cherry-pick the trials that held</p></div>
+      <div class="card a" data-at="13" data-fx="up" style="flex:1;padding:14px 20px"><h3 style="font-size:30px">Benchmark</h3><p style="font-size:24px">demo stories as a regression check</p></div>
+    </div>
+  </div>
+  <div class="abs a" data-at="14.4" data-fx="up" style="left:90px;top:850px;width:1740px">
+    <div class="sub">guardrails</div>
+    <div style="margin-top:8px">
+      <span class="chip acc a" data-at="15">never edits during a ticket</span>
+      <span class="chip acc a" data-at="15.8">gates and review rules need a yes</span>
+      <span class="chip acc a" data-at="16.6">one open trial at a time</span>
+      <span class="chip acc a" data-at="17.4">quality counters beside cost</span>
+      <span class="chip acc a" data-at="18.2">workflow version on every audit</span>
+    </div>
+  </div>
+  <div class="note a" data-at="19.4" data-fx="up" style="font-size:28px;bottom:22px"><span class="muted">Cheaper is not better unless findings, rework and gate edits hold. The retro keeps the decision.</span></div>
+</section>
+
+<!-- 9. Status -->
+<section class="scene" id="s9" data-dur="14" data-title="Where we are">
+  <div class="pad">
+    <div class="kicker a" data-at=".1">Where we are</div>
+    <h2 class="a" data-at=".3" data-fx="up">Proven, in progress, next</h2>
+  </div>
+  <div class="grid3" style="position:absolute;left:90px;right:90px;top:260px;gap:30px">
+    <div class="card a" data-at="1" data-fx="up" style="height:620px;border-color:var(--good)">
+      <div class="tag g">proven</div>
+      <ul style="margin-top:20px">
+        <li class="a" data-at="1.8" data-fx="left">Full flow with QE, dev and reviewer as subagents</li>
+        <li class="a" data-at="2.6" data-fx="left">Gate 1 and Gate 2 stay with humans</li>
+        <li class="a" data-at="3.4" data-fx="left">Multi-repo wait on the upstream repo</li>
+        <li class="a" data-at="4.2" data-fx="left">Call log, telemetry and hook join cleanly</li>
+        <li class="a" data-at="5" data-fx="left">Audit per ticket: cost, flow, skills, failures</li>
+      </ul>
+    </div>
+    <div class="card a" data-at="5.8" data-fx="up" style="height:620px;border-color:var(--warn)">
+      <div class="tag w">in progress</div>
+      <ul style="margin-top:20px">
+        <li class="a" data-at="6.6" data-fx="left">Agents sometimes skip reading their skill</li>
+        <li class="a" data-at="7.4" data-fx="left">Orchestrator sometimes writes the test plan itself</li>
+        <li class="a" data-at="8.2" data-fx="left">Failed file reads: cause still unknown</li>
+        <li class="a" data-at="9" data-fx="left">Gates are protected by instructions, not yet by a hook</li>
+      </ul>
+    </div>
+    <div class="card a" data-at="9.8" data-fx="up" style="height:620px;border-color:var(--blue)">
+      <div class="tag b">next</div>
+      <ul style="margin-top:20px">
+        <li class="a" data-at="10.6" data-fx="left">audit.json, quality counters, workflow version</li>
+        <li class="a" data-at="11.4" data-fx="left">/improve and the ledger</li>
+        <li class="a" data-at="12.2" data-fx="left">Sprint report and benchmark suite</li>
+        <li class="a" data-at="13" data-fx="left">Copilot CLI and IntelliJ, ACs from Jira, Java conventions</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- 10. Close -->
+<section class="scene" id="s10" data-dur="9" data-title="Summary">
+  <div class="pad" style="display:flex;flex-direction:column;justify-content:center">
+    <h1 class="a" data-at=".3" data-fx="up" style="font-size:88px">One script owns the state.</h1>
+    <h1 class="a" data-at="1.6" data-fx="up" style="font-size:88px;color:var(--accent);margin-top:10px">Agents do the work.</h1>
+    <h1 class="a" data-at="2.9" data-fx="up" style="font-size:88px;color:var(--warn);margin-top:10px">Humans decide.</h1>
+    <p class="lead a" data-at="4.6" data-fx="up" style="margin-top:56px">And every run teaches the next one: the audit shows what it cost, the retro decides what changes.</p>
+  </div>
+</section>
+
+</div></div>
+
+<div id="hint"></div>
+<div id="bar">
+  <button id="bPrev" title="Previous scene (left arrow)">&#9664;&#9664;</button>
+  <button id="bPlay" title="Play or pause (space)">&#9654;</button>
+  <button id="bNext" title="Next scene (right arrow)">&#9654;&#9654;</button>
+  <div id="track"><div class="rail"></div><div class="fill"></div></div>
+  <div id="label"></div>
+  <div id="time">0:00</div>
+  <button id="bStep" title="Step mode: pause at the end of each scene (S)">Step</button>
+  <button id="bFull" title="Fullscreen (F)">Full</button>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  var stage = document.getElementById("stage");
+  var viewport = document.getElementById("viewport");
+  var scenes = Array.prototype.slice.call(document.querySelectorAll(".scene"));
+  var starts = [], total = 0;
+  scenes.forEach(function(s){ s._start = total; s._dur = parseFloat(s.dataset.dur); starts.push(total); total += s._dur; });
+  var FADE = 0.5;
+
+  // scale the 1920x1080 stage to the window
+  function fit(){
+    var w = viewport.clientWidth, h = viewport.clientHeight;
+    var k = Math.min(w / 1920, h / 1080);
+    stage.style.transform = "translate(" + ((w - 1920 * k) / 2) + "px," + ((h - 1080 * k) / 2) + "px) scale(" + k + ")";
+  }
+  window.addEventListener("resize", fit); fit();
+
+  var clamp = function(x){ return x < 0 ? 0 : x > 1 ? 1 : x; };
+  var ease = function(p){ return 1 - Math.pow(1 - p, 3); };
+
+  // prepare svg draw paths
+  Array.prototype.forEach.call(document.querySelectorAll('[data-fx="draw"]'), function(el){
+    try { el._len = el.getTotalLength(); el.style.strokeDasharray = el.getAttribute("stroke-dasharray") ? "" : el._len; } catch(e){ el._len = 0; }
+    if (el.getAttribute("stroke-dasharray")) { el._dashed = true; }
+  });
+
+  function applyEl(el, l){
+    var at = parseFloat(el.dataset.at || "0"), d = parseFloat(el.dataset.d || "0.6");
+    var fx = el.dataset.fx || "fade";
+    var p = ease(clamp((l - at) / d));
+    var op = p;
+    if (el.dataset.out) op *= 1 - ease(clamp((l - parseFloat(el.dataset.out)) / 0.4));
+    if (el.dataset.on !== undefined) {
+      var on = l >= parseFloat(el.dataset.on) && (el.dataset.off === undefined || l < parseFloat(el.dataset.off));
+      el.classList.toggle("on", on);
+    }
+    if (el.dataset.done !== undefined) el.classList.toggle("done", l >= parseFloat(el.dataset.done));
+    var tr = "";
+    if (fx === "up") tr = "translateY(" + ((1 - p) * 28) + "px)";
+    else if (fx === "left") tr = "translateX(" + (-(1 - p) * 40) + "px)";
+    else if (fx === "scale") tr = "scale(" + (0.9 + 0.1 * p) + ")";
+    if (fx === "w") { el.style.width = (p * parseFloat(el.dataset.w)) + "%"; }
+    if (fx === "draw" && el._len) {
+      if (el._dashed) { el.style.opacity = op; return; }
+      el.style.strokeDashoffset = el._len * (1 - p); el.style.opacity = l >= at ? 1 : 0; return;
+    }
+    if (el.dataset.move) {
+      var pts = el.dataset.move.split(";").map(function(s){ var a = s.split(","); return [parseFloat(a[0]), parseFloat(a[1])]; });
+      var segs = el.dataset.segs ? el.dataset.segs.split(",").map(parseFloat) : null; // absolute times at which each point is reached
+      var x = pts[0][0], y = pts[0][1];
+      if (segs) {
+        for (var i = 1; i < pts.length; i++) {
+          var t0 = segs[i - 1], t1 = segs[i];
+          if (l >= t1) { x = pts[i][0]; y = pts[i][1]; }
+          else if (l > t1 - 0.9) { var q = ease(clamp((l - (t1 - 0.9)) / 0.9)); x = pts[i-1][0] + (pts[i][0] - pts[i-1][0]) * q; y = pts[i-1][1] + (pts[i][1] - pts[i-1][1]) * q; break; }
+          else break;
+        }
+      }
+      el.style.transform = "translate(" + x + "px," + y + "px)";
+      el.style.opacity = op; return;
+    }
+    el.style.transform = tr;
+    el.style.opacity = op;
+  }
+  function applyCounts(root, l){
+    Array.prototype.forEach.call(root.querySelectorAll("[data-count]"), function(el){
+      var at = parseFloat(el.dataset.at || "0"), d = parseFloat(el.dataset.d || "1");
+      var v = parseFloat(el.dataset.count) * ease(clamp((l - at) / d));
+      el.textContent = v.toFixed(parseInt(el.dataset.dec || "0", 10));
+    });
+  }
+
+  var t = 0, playing = false, step = true, speed = 1, last = 0;
+  var cur = 0;
+  function sceneIndexAt(tt){ var i = 0; for (var k = 0; k < scenes.length; k++) if (tt >= starts[k]) i = k; return i; }
+
+  function render(){
+    cur = sceneIndexAt(t);
+    scenes.forEach(function(s, i){
+      var l = t - s._start;
+      var visible = i === cur || (i === cur - 1 && t - scenes[cur]._start < FADE);
+      if (!visible) { s.style.opacity = 0; s.style.zIndex = 0; return; }
+      s.style.zIndex = i === cur ? 2 : 1;
+      s.style.opacity = i === cur ? (cur === 0 ? 1 : ease(clamp(l / FADE))) : 1;
+      var ll = i === cur ? l : s._dur;
+      Array.prototype.forEach.call(s.querySelectorAll(".a, .node, .token, [data-on]"), function(el){ applyEl(el, ll); });
+      applyCounts(s, ll);
+    });
+    // controls
+    document.querySelector("#track .fill").style.width = (t / total * 100) + "%";
+    document.getElementById("label").textContent = String(cur + 1).padStart(2, "0") + " / " + String(scenes.length).padStart(2, "0") + "  " + scenes[cur].dataset.title;
+    var m = Math.floor(t / 60), s2 = Math.floor(t % 60);
+    document.getElementById("time").textContent = m + ":" + String(s2).padStart(2, "0");
+    document.getElementById("bPlay").innerHTML = playing ? "&#10074;&#10074;" : "&#9654;";
+    document.getElementById("bStep").classList.toggle("on", step);
+  }
+
+  function seek(tt){ t = Math.max(0, Math.min(total - 0.001, tt)); render(); }
+  function goScene(i, play){
+    i = Math.max(0, Math.min(scenes.length - 1, i));
+    seek(starts[i]); playing = play !== false; hideHint();
+    history.replaceState(null, "", "#" + (i + 1));
+  }
+  var hintTimer = null;
+  function showHint(msg){ var h = document.getElementById("hint"); h.textContent = msg; h.style.opacity = 1; clearTimeout(hintTimer); hintTimer = setTimeout(hideHint, 3000); }
+  function hideHint(){ document.getElementById("hint").style.opacity = 0; }
+
+  function tick(now){
+    var dt = (now - last) / 1000; last = now;
+    if (playing) {
+      var nt = t + dt * speed;
+      var sceneEnd = scenes[cur]._start + scenes[cur]._dur;
+      if (step && nt >= sceneEnd - 0.001 && cur < scenes.length - 1) {
+        t = sceneEnd - 0.002; playing = false; showHint("Right arrow: next scene");
+      } else if (nt >= total - 0.001) { t = total - 0.002; playing = false; showHint("End. Left arrow to go back"); }
+      else t = nt;
+      render();
+    }
+    requestAnimationFrame(tick);
+  }
+
+  // controls
+  document.getElementById("bPlay").onclick = toggle;
+  document.getElementById("bPrev").onclick = function(){ var inScene = t - scenes[cur]._start; goScene(inScene > 1.5 ? cur : cur - 1, true); };
+  document.getElementById("bNext").onclick = function(){ goScene(cur + 1, true); };
+  document.getElementById("bStep").onclick = function(){ step = !step; render(); showHint(step ? "Step mode on: pauses after each scene" : "Step mode off: plays straight through"); };
+  document.getElementById("bFull").onclick = fullscreen;
+  function toggle(){ if (t >= total - 0.01) { goScene(0, true); return; } playing = !playing; hideHint(); render(); }
+  function fullscreen(){ if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen && document.documentElement.requestFullscreen(); }
+  var track = document.getElementById("track");
+  starts.forEach(function(s, i){ if (i === 0) return; var el = document.createElement("div"); el.className = "tick"; el.style.left = (s / total * 100) + "%"; track.appendChild(el); });
+  track.addEventListener("click", function(e){ var r = track.getBoundingClientRect(); seek((e.clientX - r.left) / r.width * total); });
+  document.addEventListener("keydown", function(e){
+    if (e.key === " " ) { e.preventDefault(); toggle(); }
+    else if (e.key === "ArrowRight" || e.key === "PageDown") { e.preventDefault(); goScene(cur + 1, true); }
+    else if (e.key === "ArrowLeft" || e.key === "PageUp") { e.preventDefault(); var inScene = t - scenes[cur]._start; goScene(inScene > 1.5 ? cur : cur - 1, true); }
+    else if (e.key === "Home") goScene(0, false);
+    else if (e.key === "End") { goScene(scenes.length - 1, false); seek(total - 0.01); }
+    else if (e.key === "s" || e.key === "S") document.getElementById("bStep").click();
+    else if (e.key === "f" || e.key === "F") fullscreen();
+  });
+
+  // start: #N opens scene N; ?auto plays straight through
+  var q = new URLSearchParams(location.search);
+  if (q.has("auto")) step = false;
+  var hs = parseInt((location.hash || "").replace("#", ""), 10);
+  if (hs >= 1 && hs <= scenes.length) t = starts[hs - 1];
+  if (q.has("t")) t = Math.max(0, Math.min(total - 0.01, parseFloat(q.get("t"))));
+  render();
+  if (!q.has("t") && !q.has("paused")) { playing = true; }
+  last = performance.now(); requestAnimationFrame(tick);
+  window.__wf = { seek: seek, total: total, starts: starts, scenes: scenes, setStep: function(v){ step = v; } };
+})();
+</script>
+</body>
+</html>

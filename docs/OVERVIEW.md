@@ -77,3 +77,5 @@ Alternatives considered: production-only sprint loop (too slow), auto-proposals 
 4. Benchmark runner for the merge check.
 
 Other open work: Java conventions in the skills, ACs from Jira, multi-repo tests (PROJ-103, 104), story version comparison (PROJ-105), `install.ps1`, CLI and IntelliJ telemetry, scope guard through a `preToolUse` hook (only once hooks are proven).
+
+Animated overview for presenting the design workflow: `docs/workflow-overview.html` (open in a browser; space plays or pauses, arrows move between scenes, F for fullscreen).
