@@ -1,0 +1,329 @@
+diff --git a/docs/api.md b/docs/api.md
+index ae642fd..2f47cfc 100644
+--- a/docs/api.md
++++ b/docs/api.md
+@@ -1,17 +1,17 @@
+-# Order service API
+-
+-Service class: `com.lego.order.OrderService`. Errors are `ApiException` with an HTTP status.
+-
+-## create(sku, quantity)
+-- 200: the order (`id`, `sku`, `quantity`, `status` = open)
+-- 400: blank sku, quantity not positive
+-- 409: not enough stock
+-
+-## get(id)
+-- 200: the order
+-- 404: unknown order
+-
+-## cancel(id)
+-- 200: the cancelled order
+-- 404: unknown order
+-- 409: already cancelled
++# Order service API
++
++Service class: `com.lego.order.OrderService`. Errors are `ApiException` with an HTTP status.
++
++## create(sku, quantity)
++- 200: the order (`id`, `sku`, `quantity`, `status` = open)
++- 400: blank sku, quantity not positive
++- 409: not enough stock
++
++## get(id)
++- 200: the order
++- 404: unknown order
++
++## cancel(id)
++- 200: the cancelled order
++- 404: unknown order
++- 409: already cancelled
+diff --git a/docs/contracts/inventory.md b/docs/contracts/inventory.md
+index 0ebf883..3edf772 100644
+--- a/docs/contracts/inventory.md
++++ b/docs/contracts/inventory.md
+@@ -1,8 +1,9 @@
+-# Contract: order-service uses inventory-service
+-
+-`com.lego.order.InventoryClient` is the only place order-service talks to inventory-service.
+-It mirrors `inventory-service/docs/api.md`. A change here needs a matching change there.
+-
+-| Client method | inventory-service operation |
+-|---|---|
+-| `available(sku)` | `get(sku).available` |
++# Contract: order-service uses inventory-service
++
++`com.lego.order.InventoryClient` is the only place order-service talks to inventory-service.
++It mirrors `inventory-service/docs/api.md`. A change here needs a matching change there.
++
++| Client method | inventory-service operation |
++|---|---|
++| `reserve(sku, quantity)` | `reserve(sku, quantity)` |
++| `release(sku, quantity)` | `release(sku, quantity)` |
+diff --git a/src/main/java/com/lego/order/InventoryClient.java b/src/main/java/com/lego/order/InventoryClient.java
+index 82295e5..4d01b94 100644
+--- a/src/main/java/com/lego/order/InventoryClient.java
++++ b/src/main/java/com/lego/order/InventoryClient.java
+@@ -1,6 +1,7 @@
+-package com.lego.order;
+-
+-/** What order-service needs from inventory-service. See docs/contracts/inventory.md. */
+-public interface InventoryClient {
+-    int available(String sku);
+-}
++package com.lego.order;
++
++/** What order-service needs from inventory-service. See docs/contracts/inventory.md. */
++public interface InventoryClient {
++    int reserve(String sku, int quantity);
++    int release(String sku, int quantity);
++}
+diff --git a/src/main/java/com/lego/order/OrderService.java b/src/main/java/com/lego/order/OrderService.java
+index f29b2f4..1a0b473 100644
+--- a/src/main/java/com/lego/order/OrderService.java
++++ b/src/main/java/com/lego/order/OrderService.java
+@@ -1,36 +1,40 @@
+-package com.lego.order;
+-
+-import java.util.HashMap;
+-import java.util.Map;
+-
+-public class OrderService {
+-    private final InventoryClient inventory;
+-    private final Map<String, Order> orders = new HashMap<>();
+-    private int counter = 0;
+-
+-    public OrderService(InventoryClient inventory) {
+-        this.inventory = inventory;
+-    }
+-
+-    public Order create(String sku, int quantity) {
+-        if (sku == null || sku.isBlank()) throw new ApiException(400, "sku is required");
+-        if (quantity <= 0) throw new ApiException(400, "quantity must be positive");
+-        if (inventory.available(sku) < quantity) throw new ApiException(409, "insufficient stock for " + sku);
+-        Order order = new Order("ORD-" + (++counter), sku, quantity);
+-        orders.put(order.id(), order);
+-        return order;
+-    }
+-
+-    public Order get(String id) {
+-        Order order = orders.get(id);
+-        if (order == null) throw new ApiException(404, "order not found: " + id);
+-        return order;
+-    }
+-
+-    public Order cancel(String id) {
+-        Order order = get(id);
+-        if ("cancelled".equals(order.status())) throw new ApiException(409, "order already cancelled");
+-        order.markCancelled();
+-        return order;
+-    }
+-}
++package com.lego.order;
++
++import java.util.HashMap;
++import java.util.Map;
++
++public class OrderService {
++    private final InventoryClient inventory;
++    private final Map<String, Order> orders = new HashMap<>();
++    private int counter = 0;
++
++    public OrderService(InventoryClient inventory) {
++        this.inventory = inventory;
++    }
++
++    public Order create(String sku, int quantity) {
++        if (sku == null || sku.isBlank()) throw new ApiException(400, "sku is required");
++        if (quantity <= 0) throw new ApiException(400, "quantity must be positive");
++
++        inventory.reserve(sku, quantity);
++
++        Order order = new Order("ORD-" + (++counter), sku, quantity);
++        orders.put(order.id(), order);
++        return order;
++    }
++
++    public Order get(String id) {
++        Order order = orders.get(id);
++        if (order == null) throw new ApiException(404, "order not found: " + id);
++        return order;
++    }
++
++    public Order cancel(String id) {
++        Order order = get(id);
++        if ("cancelled".equals(order.status())) throw new ApiException(409, "order already cancelled");
++
++        inventory.release(order.sku(), order.quantity());
++        order.markCancelled();
++        return order;
++    }
++}
+diff --git a/src/test/java/com/lego/order/OrderServiceTest.java b/src/test/java/com/lego/order/OrderServiceTest.java
+index abdb5d4..de28c1f 100644
+--- a/src/test/java/com/lego/order/OrderServiceTest.java
++++ b/src/test/java/com/lego/order/OrderServiceTest.java
+@@ -1,54 +1,110 @@
+-package com.lego.order;
+-
+-import static org.junit.jupiter.api.Assertions.assertEquals;
+-import static org.junit.jupiter.api.Assertions.assertThrows;
+-
+-import org.junit.jupiter.api.Test;
+-
+-class OrderServiceTest {
+-    private final InventoryClient plentyOfStock = sku -> 100;
+-
+-    @Test
+-    void createAndGetAnOrder() {
+-        OrderService service = new OrderService(plentyOfStock);
+-        Order order = service.create("SKU-1", 2);
+-        assertEquals("open", service.get(order.id()).status());
+-    }
+-
+-    @Test
+-    void createFailsWhenStockIsInsufficient() {
+-        OrderService service = new OrderService(sku -> 1);
+-        ApiException e = assertThrows(ApiException.class, () -> service.create("SKU-1", 2));
+-        assertEquals(409, e.status());
+-    }
+-
+-    @Test
+-    void createRejectsNonPositiveQuantity() {
+-        OrderService service = new OrderService(plentyOfStock);
+-        ApiException e = assertThrows(ApiException.class, () -> service.create("SKU-1", 0));
+-        assertEquals(400, e.status());
+-    }
+-
+-    @Test
+-    void cancelAnOpenOrder() {
+-        OrderService service = new OrderService(plentyOfStock);
+-        Order order = service.create("SKU-1", 1);
+-        assertEquals("cancelled", service.cancel(order.id()).status());
+-    }
+-
+-    @Test
+-    void cancellingTwiceIsConflict() {
+-        OrderService service = new OrderService(plentyOfStock);
+-        Order order = service.create("SKU-1", 1);
+-        service.cancel(order.id());
+-        ApiException e = assertThrows(ApiException.class, () -> service.cancel(order.id()));
+-        assertEquals(409, e.status());
+-    }
+-
+-    @Test
+-    void unknownOrderIsNotFound() {
+-        OrderService service = new OrderService(plentyOfStock);
+-        ApiException e = assertThrows(ApiException.class, () -> service.get("nope"));
+-        assertEquals(404, e.status());
+-    }
+-}
++package com.lego.order;
++
++import static org.junit.jupiter.api.Assertions.assertEquals;
++import static org.junit.jupiter.api.Assertions.assertThrows;
++
++import org.junit.jupiter.api.Test;
++
++class OrderServiceTest {
++    private static final class StubInventory implements InventoryClient {
++        private int available;
++        private int reservedQuantity;
++        private int releasedQuantity;
++
++        private StubInventory(int available) {
++            this.available = available;
++        }
++
++        public int available(String sku) {
++            return available;
++        }
++
++        @Override
++        public int reserve(String sku, int quantity) {
++            if (quantity <= 0) throw new ApiException(400, "quantity must be positive");
++            if (quantity > available) throw new ApiException(409, "insufficient stock for " + sku);
++            available -= quantity;
++            reservedQuantity += quantity;
++            return available;
++        }
++
++        @Override
++        public int release(String sku, int quantity) {
++            if (quantity <= 0) throw new ApiException(400, "quantity must be positive");
++            available += quantity;
++            releasedQuantity += quantity;
++            return available;
++        }
++    }
++
++    @Test
++    void createReservesStockForTheOrder() {
++        StubInventory inventory = new StubInventory(10);
++        OrderService service = new OrderService(inventory);
++
++        Order order = service.create("SKU-1", 2);
++
++        assertEquals("open", service.get(order.id()).status());
++        assertEquals(8, inventory.available("SKU-1"));
++        assertEquals(2, inventory.reservedQuantity);
++    }
++
++    @Test
++    void createFailsWhenInventoryCannotReserveStock() {
++        StubInventory inventory = new StubInventory(1);
++        OrderService service = new OrderService(inventory);
++
++        ApiException e = assertThrows(ApiException.class, () -> service.create("SKU-1", 2));
++
++        assertEquals(409, e.status());
++        assertEquals(1, inventory.available("SKU-1"));
++        assertThrows(ApiException.class, () -> service.get("ORD-1"));
++    }
++
++    @Test
++    void createRejectsNonPositiveQuantity() {
++        StubInventory inventory = new StubInventory(10);
++        OrderService service = new OrderService(inventory);
++
++        ApiException e = assertThrows(ApiException.class, () -> service.create("SKU-1", 0));
++
++        assertEquals(400, e.status());
++    }
++
++    @Test
++    void cancelReleasesInventoryOnce() {
++        StubInventory inventory = new StubInventory(10);
++        OrderService service = new OrderService(inventory);
++        Order order = service.create("SKU-1", 2);
++
++        Order cancelled = service.cancel(order.id());
++
++        assertEquals("cancelled", cancelled.status());
++        assertEquals(10, inventory.available("SKU-1"));
++        assertEquals(2, inventory.releasedQuantity);
++    }
++
++    @Test
++    void cancellingTwiceIsConflictAndDoesNotReleaseAgain() {
++        StubInventory inventory = new StubInventory(10);
++        OrderService service = new OrderService(inventory);
++        Order order = service.create("SKU-1", 2);
++        service.cancel(order.id());
++
++        ApiException e = assertThrows(ApiException.class, () -> service.cancel(order.id()));
++
++        assertEquals(409, e.status());
++        assertEquals(10, inventory.available("SKU-1"));
++        assertEquals(2, inventory.releasedQuantity);
++    }
++
++    @Test
++    void unknownOrderIsNotFound() {
++        StubInventory inventory = new StubInventory(10);
++        OrderService service = new OrderService(inventory);
++
++        ApiException e = assertThrows(ApiException.class, () -> service.get("nope"));
++
++        assertEquals(404, e.status());
++    }
++}

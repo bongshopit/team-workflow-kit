@@ -1,0 +1,233 @@
+diff --git a/docs/api.md b/docs/api.md
+index 1d984dc..699d911 100644
+--- a/docs/api.md
++++ b/docs/api.md
+@@ -1,20 +1,32 @@
+-# Inventory service API
+-
+-Service class: `com.lego.inventory.InventoryService`. Errors are `ApiException` with an HTTP status.
+-
+-## addProduct(sku, name, available)
+-- 200: the product
+-- 400: blank sku or name, negative available
+-- 409: sku already exists
+-
+-## get(sku)
+-- 200: `{sku, name, available}`
+-- 404: unknown sku
+-
+-## addStock(sku, quantity)
+-- 200: the updated product
+-- 400: quantity is not positive
+-- 404: unknown sku
+-
+-## list()
+-All products in insertion order.
++# Inventory service API
++
++Service class: `com.lego.inventory.InventoryService`. Errors are `ApiException` with an HTTP status.
++
++## addProduct(sku, name, available)
++- 200: the product
++- 400: blank sku or name, negative available
++- 409: sku already exists
++
++## get(sku)
++- 200: `{sku, name, available}`
++- 400: blank sku
++- 404: unknown sku
++
++## addStock(sku, quantity)
++- 200: the updated product
++- 400: quantity is not positive
++- 404: unknown sku
++
++## reserve(sku, quantity)
++- 200: the updated product with available stock reduced by quantity
++- 400: blank sku or non-positive quantity
++- 404: unknown sku
++- 409: insufficient stock
++
++## release(sku, quantity)
++- 200: the updated product with available stock increased by quantity
++- 400: blank sku or non-positive quantity
++- 404: unknown sku
++
++## list()
++All products in insertion order.
+diff --git a/src/main/java/com/lego/inventory/InventoryService.java b/src/main/java/com/lego/inventory/InventoryService.java
+index 6cc0bcd..0478cf0 100644
+--- a/src/main/java/com/lego/inventory/InventoryService.java
++++ b/src/main/java/com/lego/inventory/InventoryService.java
+@@ -1,38 +1,63 @@
+-package com.lego.inventory;
+-
+-import java.util.ArrayList;
+-import java.util.LinkedHashMap;
+-import java.util.List;
+-import java.util.Map;
+-
+-public class InventoryService {
+-    private final Map<String, Product> products = new LinkedHashMap<>();
+-
+-    public Product addProduct(String sku, String name, int available) {
+-        if (sku == null || sku.isBlank()) throw new ApiException(400, "sku is required");
+-        if (name == null || name.isBlank()) throw new ApiException(400, "name is required");
+-        if (available < 0) throw new ApiException(400, "available must not be negative");
+-        if (products.containsKey(sku)) throw new ApiException(409, "product already exists: " + sku);
+-        Product product = new Product(sku, name, available);
+-        products.put(sku, product);
+-        return product;
+-    }
+-
+-    public Product get(String sku) {
+-        Product product = products.get(sku);
+-        if (product == null) throw new ApiException(404, "product not found: " + sku);
+-        return product;
+-    }
+-
+-    public Product addStock(String sku, int quantity) {
+-        if (quantity <= 0) throw new ApiException(400, "quantity must be positive");
+-        Product current = get(sku);
+-        Product updated = new Product(sku, current.name(), current.available() + quantity);
+-        products.put(sku, updated);
+-        return updated;
+-    }
+-
+-    public List<Product> list() {
+-        return new ArrayList<>(products.values());
+-    }
+-}
++package com.lego.inventory;
++
++import java.util.ArrayList;
++import java.util.LinkedHashMap;
++import java.util.List;
++import java.util.Map;
++
++public class InventoryService {
++    private final Map<String, Product> products = new LinkedHashMap<>();
++
++    public Product addProduct(String sku, String name, int available) {
++        if (sku == null || sku.isBlank()) throw new ApiException(400, "sku is required");
++        if (name == null || name.isBlank()) throw new ApiException(400, "name is required");
++        if (available < 0) throw new ApiException(400, "available must not be negative");
++        if (products.containsKey(sku)) throw new ApiException(409, "product already exists: " + sku);
++        Product product = new Product(sku, name, available);
++        products.put(sku, product);
++        return product;
++    }
++
++    public Product get(String sku) {
++        if (sku == null || sku.isBlank()) throw new ApiException(400, "sku is required");
++        Product product = products.get(sku);
++        if (product == null) throw new ApiException(404, "product not found: " + sku);
++        return product;
++    }
++
++    public Product addStock(String sku, int quantity) {
++        if (quantity <= 0) throw new ApiException(400, "quantity must be positive");
++        Product current = get(sku);
++        Product updated = new Product(sku, current.name(), current.available() + quantity);
++        products.put(sku, updated);
++        return updated;
++    }
++
++    public Product reserve(String sku, int quantity) {
++        if (sku == null || sku.isBlank()) throw new ApiException(400, "sku is required");
++        if (quantity <= 0) throw new ApiException(400, "quantity must be positive");
++
++        Product current = get(sku);
++        if (quantity > current.available()) {
++            throw new ApiException(409, "insufficient stock for: " + sku);
++        }
++
++        Product updated = new Product(sku, current.name(), current.available() - quantity);
++        products.put(sku, updated);
++        return updated;
++    }
++
++    public Product release(String sku, int quantity) {
++        if (sku == null || sku.isBlank()) throw new ApiException(400, "sku is required");
++        if (quantity <= 0) throw new ApiException(400, "quantity must be positive");
++
++        Product current = get(sku);
++        Product updated = new Product(sku, current.name(), current.available() + quantity);
++        products.put(sku, updated);
++        return updated;
++    }
++
++    public List<Product> list() {
++        return new ArrayList<>(products.values());
++    }
++}
+diff --git a/src/test/java/com/lego/inventory/InventoryServiceTest.java b/src/test/java/com/lego/inventory/InventoryServiceTest.java
+index 1f2abf7..ef147b4 100644
+--- a/src/test/java/com/lego/inventory/InventoryServiceTest.java
++++ b/src/test/java/com/lego/inventory/InventoryServiceTest.java
+@@ -44,6 +44,59 @@ class InventoryServiceTest {
+         assertEquals(400, e.status());
+     }
+ 
++    @Test
++    void reserveDecreasesAvailable() {
++        InventoryService service = new InventoryService();
++        service.addProduct("SKU-1", "Brick 2x4", 10);
++        assertEquals(6, service.reserve("SKU-1", 4).available());
++    }
++
++    @Test
++    void reserveRejectsOversellWithoutChangingAvailable() {
++        InventoryService service = new InventoryService();
++        service.addProduct("SKU-1", "Brick 2x4", 3);
++        ApiException e = assertThrows(ApiException.class, () -> service.reserve("SKU-1", 5));
++        assertEquals(409, e.status());
++        assertEquals(3, service.get("SKU-1").available());
++    }
++
++    @Test
++    void reserveRejectsUnknownSku() {
++        InventoryService service = new InventoryService();
++        ApiException e = assertThrows(ApiException.class, () -> service.reserve("UNKNOWN", 1));
++        assertEquals(404, e.status());
++    }
++
++    @Test
++    void reserveRejectsNonPositiveQuantity() {
++        InventoryService service = new InventoryService();
++        service.addProduct("SKU-1", "Brick 2x4", 10);
++        ApiException e = assertThrows(ApiException.class, () -> service.reserve("SKU-1", 0));
++        assertEquals(400, e.status());
++    }
++
++    @Test
++    void releaseIncreasesAvailable() {
++        InventoryService service = new InventoryService();
++        service.addProduct("SKU-1", "Brick 2x4", 6);
++        assertEquals(10, service.release("SKU-1", 4).available());
++    }
++
++    @Test
++    void releaseRejectsUnknownSku() {
++        InventoryService service = new InventoryService();
++        ApiException e = assertThrows(ApiException.class, () -> service.release("UNKNOWN", 1));
++        assertEquals(404, e.status());
++    }
++
++    @Test
++    void releaseRejectsNonPositiveQuantity() {
++        InventoryService service = new InventoryService();
++        service.addProduct("SKU-1", "Brick 2x4", 10);
++        ApiException e = assertThrows(ApiException.class, () -> service.release("SKU-1", 0));
++        assertEquals(400, e.status());
++    }
++
+     @Test
+     void listReturnsProductsInInsertionOrder() {
+         InventoryService service = new InventoryService();
+@@ -51,4 +104,4 @@ class InventoryServiceTest {
+         service.addProduct("A", "Alpha", 2);
+         assertEquals("B", service.list().get(0).sku());
+     }
+-}
++}
