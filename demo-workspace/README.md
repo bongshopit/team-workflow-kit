@@ -23,7 +23,8 @@ Install the kit first (team.mjs, skills, agents, prompt). Open the repo in VS Co
 Start with PROJ-101. Multi-repo stories (PROJ-103, PROJ-104) are run once per repo, upstream repo first.
 
 ## Reset between runs
-    node setup.mjs --reset
+    node setup.mjs --reset      back to the baseline commit, removes .team/ leftovers
+    node setup.mjs --reseed     after a kit update that changed the sample code: rebuild repos/ from seed/
 
 ## Verification
 Not compiled or run by me: Maven Central is not reachable from my sandbox. The first `mvn -q test` in each repo on your machine is the real check (it downloads Quarkus). Baseline unit tests: 6 (order), 6 (inventory... see the test folders), 4 (notification), plus one HTTP test class per repo.
