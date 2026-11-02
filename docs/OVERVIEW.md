@@ -70,6 +70,12 @@ The audit is about the workflow run on one ticket. The retro is the team's sprin
 
 Alternatives considered: production-only sprint loop (too slow), auto-proposals after every ticket without a signal (costs credits, learns from noise), A/B variants across tickets (needs more tickets than the team closes).
 
+## Audit and improve agents (first version)
+Not part of a ticket run. Both start in a new chat.
+- `/audit PROJ-101` (agent `audit`, skill `team-audit`): runs `team ticket`, `team calls`, `otel-report.mjs`, `team audit`, checks the evidence is complete (telemetry arrived, spans matched), classifies each finding (`kit-bug`, `workflow-gap`, `model-behaviour`, `environment`, `expected`) and writes `~/.copilot/team/tickets/<TICKET>/audit-review.md` with at most 3 ranked proposals. It changes nothing else.
+- `/improve PROJ-101` (agent `improve`, skill `team-improve`), with the kit folder open: applies one proposal on branch `local/<dev>` with tests, commits with signal, hypothesis and baseline, and adds a row to `docs/improvement-ledger.md`. One open trial at a time; gates, "Never" rules, review criteria and `team.mjs` need the developer's yes; never commits to `main`, never pushes.
+This replaces pasting outputs into a chat by hand. Not proven yet: how well a Copilot model does the diagnosis compared with a person.
+
 ## Build order
 1. `audit.json` with workflow version stamp, model, quality counters, signals; human notes at Gate 2.
 2. `/improve`: improver agent and skill, the commit convention, ledger row, trial tracking and the revert flag.
