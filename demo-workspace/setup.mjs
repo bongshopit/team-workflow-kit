@@ -7,8 +7,21 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "repos");
+fs.mkdirSync(root, { recursive: true });
 const reset = process.argv.includes("--reset");
 const git = (cwd, ...a) => spawnSync("git", ["-c", "user.name=demo", "-c", "user.email=demo@example.com", ...a], { cwd, encoding: "utf8" });
+
+// A fresh clone has no repos/ folder: copy the sources from seed/ first (seed/ is tracked by the kit, repos/ is not).
+const seed = path.join(path.dirname(fileURLToPath(import.meta.url)), "seed");
+if (fs.existsSync(seed)) {
+  for (const name of fs.readdirSync(seed)) {
+    const target = path.join(root, name);
+    if (!fs.existsSync(target)) {
+      fs.cpSync(path.join(seed, name), target, { recursive: true });
+      console.log(`${name}: copied from seed/`);
+    }
+  }
+}
 
 for (const name of fs.readdirSync(root)) {
   const dir = path.join(root, name);

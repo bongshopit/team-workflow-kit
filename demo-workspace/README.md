@@ -7,12 +7,13 @@ Three small Quarkus 3 REST services (Java 17, Maven, in-memory) and six test sto
     repos/notification-service   sends and records notifications, HTTP on 8083
     services.ps1                 start, stop and check the three services in the background
     smoke.ps1                    quick manual HTTP calls against the running services
+    seed/                        tracked copy of the three repos' baseline sources. setup.mjs copies it to repos/ on a fresh clone
     archive/                     patches and change folders from earlier PROJ-103 runs on the old non-Quarkus baseline
     stories/                     PROJ-101 ... PROJ-105 in the shape wf-plan produces (see stories/README.md)
     setup.mjs                    git init + baseline commit per repo; --reset returns every repo to it
 
 ## Setup
-    node setup.mjs
+    node setup.mjs            # on a fresh clone this first copies seed/ to repos/, then makes the baseline git repos
     cd repos\order-service
     mvn -q test              # unit tests and HTTP tests pass before you start. The first run downloads Quarkus (hundreds of MB).
 Set `TEAM_TEST_CMD=mvn -q test` for the shell Copilot runs in. Do this per repo.
