@@ -195,6 +195,7 @@ Compare versions with `git -C $KIT log --oneline -1`.
 |---|---|
 | `team.mjs not found` in a skill | Step 2 not done, or run on another user account. Check `$HOME`. |
 | `otel-report.mjs not found` on `team audit` | `otel` folder missing next to `team.mjs`. Repeat step 2 and step 3. |
+| Collector is up but `requests` stays 0 after a chat | Something on the machine blocks VS Code from reaching port 4318 (seen on a company laptop; PowerShell could reach it). Use another port: `.\workflow-kit-install.ps1 -Port 14318 -PatchSettings`, set `github.copilot.chat.otel.otlpEndpoint` to that port if it already has a value, kill all Code processes and start VS Code again. The installer remembers the port for `-Status`. |
 | Collector health fails | Task not running. `.\otel-task.ps1 -Status`; check the port. |
 | Report shows 0 spans | VS Code started before the settings or variables. Close all windows, start again, new chat. |
 | Only protobuf arrives | The protocol variables were not set in the process that started VS Code. |

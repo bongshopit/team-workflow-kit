@@ -23,7 +23,7 @@
 param(
   [string]$Workspace,        # folder you open in VS Code. Agents, skills and prompts go to <Workspace>\.github
   [string]$TestCmd,          # sets TEAM_TEST_CMD for your user, for example "mvn -q test"
-  [int]$Port = 4318,         # collector port
+  [int]$Port = 0,            # collector port. Default: the port used at the last install, else 4318
   [switch]$SkipTests,        # do not run the kit's tests first
   [switch]$SkipCollector,    # do not install the scheduled collector task
   [switch]$SkipHook,         # do not install the hook
@@ -43,6 +43,10 @@ $HookDir  = Join-Path $Home_ ".copilot\hooks"
 $HookFile = Join-Path $HookDir "team-discovery.json"
 $Stamp    = Join-Path $Team "kit-version.json"
 $Settings = Join-Path $env:APPDATA "Code\User\settings.json"
+if ($Port -eq 0) {
+  $Port = 4318
+  if (Test-Path $Stamp) { try { $sp = (Get-Content $Stamp -Raw | ConvertFrom-Json).port; if ($sp) { $Port = [int]$sp } } catch { } }
+}
 $TaskName = "TeamOtelCollector"
 $GitDirs  = "agents", "skills", "prompts"
 
@@ -318,7 +322,7 @@ else {
 
 if (-not $DryRun) {
   Step "9. Version stamp and check"
-  $obj = [ordered]@{ commit = (Get-KitCommit); installedAt = (Get-Date).ToString("s"); kit = $Kit; workspace = $Workspace }
+  $obj = [ordered]@{ commit = (Get-KitCommit); installedAt = (Get-Date).ToString("s"); kit = $Kit; workspace = $Workspace; port = $Port }
   New-Item -ItemType Directory -Force $Team | Out-Null
   ($obj | ConvertTo-Json) | Set-Content $Stamp -Encoding UTF8
   & node (Join-Path $Team "team.mjs") help | Out-Null
