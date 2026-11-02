@@ -61,7 +61,7 @@ if (-not $node) { throw "node was not found on PATH. Install Node 18 or newer an
 
 # 2. Copy the scripts to a fixed place so the task does not depend on the Downloads folder.
 New-Item -ItemType Directory -Force $Dest | Out-Null
-foreach ($f in "otel-collect.mjs", "otel-lib.mjs", "otel-report.mjs", "otel-dump.mjs", "otel-summary.mjs") {
+foreach ($f in "otel-collect.mjs", "otel-lib.mjs", "otel-report.mjs", "otel-audit.mjs", "otel-dump.mjs", "otel-summary.mjs") {
   $src = Join-Path $PSScriptRoot $f
   if (-not (Test-Path $src)) { throw "$f is not next to this script ($PSScriptRoot)." }
   Copy-Item $src $Dest -Force
